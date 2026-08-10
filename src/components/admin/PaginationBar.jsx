@@ -110,7 +110,7 @@ export default function PaginationBar({
   }
 
   return (
-    <div className="flex items-center justify-between px-1">
+    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
       <p className="text-xs text-muted-foreground">
         Page {page} of {pages} · {total} {itemLabel}
       </p>
