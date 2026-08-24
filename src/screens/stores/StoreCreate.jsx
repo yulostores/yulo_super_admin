@@ -684,7 +684,7 @@ export default function StoreCreate() {
           </Card>
         </div>
 
-        <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-3 border-t border-brand-cream/60 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:-mx-7 lg:px-7">
+        <div className="sticky bottom-0 z-10 -mx-6 flex flex-col gap-3 border-t border-brand-cream/60 bg-white/95 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between lg:-mx-7 lg:px-7">
           <p className="flex items-center gap-2 text-sm">
             {isDirty ? (
               <>

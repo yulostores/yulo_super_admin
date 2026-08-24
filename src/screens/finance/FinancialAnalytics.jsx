@@ -228,7 +228,7 @@ export default function FinancialAnalytics() {
         </section>
       )}
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
         <button
           type="button"
           className="flex items-center gap-1.5 rounded-lg border border-brand-cream bg-white px-3 py-1.5 text-xs font-semibold text-[#5a453a] hover:bg-brand-cream/30"
@@ -247,14 +247,14 @@ export default function FinancialAnalytics() {
       </div>
 
       <Card>
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Revenue breakdown
             </p>
             <h2 className="text-base font-bold">Revenue trend</h2>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3">
             <LegendDot color="#1565C0" label="Online delivery" />
             <LegendDot color="#2E7D32" label="Dine-in" />
           </div>
@@ -364,7 +364,7 @@ export default function FinancialAnalytics() {
             </p>
             <h2 className="text-base font-bold">Where the money moves</h2>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <CardContent className="grid grid-cols-2 gap-4">
             {[
               {
                 title: "Revenue source",
@@ -444,7 +444,7 @@ export default function FinancialAnalytics() {
       </section>
 
       <Card>
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
           <h2 className="text-base font-bold">Restaurant Revenue</h2>
           <p className="text-xs text-muted-foreground">
             {restaurantData?.total ?? 0} restaurants

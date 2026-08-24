@@ -1,7 +1,6 @@
 // Platform Admin shell — light sidebar + top bar, matches the FoodHub Super
 // Admin design. Used across every screen in this app.
 
-import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Bell,
@@ -9,12 +8,10 @@ import {
   Headset,
   LayoutDashboard,
   LogOut,
-  Menu,
   Store,
   TrendingUp,
   Truck,
   Users,
-  X,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -134,53 +131,21 @@ export default function AdminLayout({
   const isActive = (item) =>
     item.exact ? pathname === item.to : pathname.startsWith(item.to);
   const openTickets = useOpenTicketCount();
-  const [navOpen, setNavOpen] = useState(false);
-
-  function goTo(to) {
-    navigate(to);
-    setNavOpen(false);
-  }
 
   return (
     <div className="flex min-h-screen bg-#fafaf8 font-sans text-[#24190f]">
-      {navOpen ? (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-          onClick={() => setNavOpen(false)}
-          aria-hidden="true"
-        />
-      ) : null}
-
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-screen w-[260px] shrink-0 -translate-x-full flex-col justify-between border-r border-brand-cream/60 bg-white transition-transform duration-200 ease-out",
-          "lg:sticky lg:top-0 lg:translate-x-0",
-          navOpen && "translate-x-0",
-        )}
-      >
+      <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-brand-cream/60 bg-white">
         <div>
-          <div className="flex items-center justify-between gap-3 px-6 pb-6 pt-6">
-            <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#D9480F] text-white">
-                <Store className="h-5 w-5" />
-              </span>
-              <div className="leading-tight">
-                <p className="text-lg font-bold">
-                  Food<span className="text-brand-orange">Hub</span>
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Super Admin
-                </p>
-              </div>
+          <div className="flex items-center gap-3 px-6 pb-6 pt-6">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#D9480F] text-white">
+              <Store className="h-5 w-5" />
+            </span>
+            <div className="leading-tight">
+              <p className="text-lg font-bold">
+                Food<span className="text-brand-orange">Hub</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground">Super Admin</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setNavOpen(false)}
-              className="grid h-8 w-8 place-items-center rounded-lg text-[#5a453a] hover:bg-brand-cream/40 lg:hidden"
-              aria-label="Close menu"
-            >
-              <X className="h-5 w-5" />
-            </button>
           </div>
 
           <nav className="flex flex-col gap-1 px-3">
@@ -191,7 +156,7 @@ export default function AdminLayout({
                 <button
                   key={item.to}
                   type="button"
-                  onClick={() => goTo(item.to)}
+                  onClick={() => navigate(item.to)}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors",
                     active
@@ -215,35 +180,23 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col gap-5 p-4 pb-12 sm:p-6 lg:px-7">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setNavOpen(true)}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-brand-cream/60 bg-white text-[#5f5f5f] lg:hidden"
-              aria-label="Open menu"
-            >
-              <Menu className="h-[18px] w-[18px]" />
-            </button>
-            <div>
-              {breadcrumb ? (
-                <p className="text-xs text-muted-foreground">{breadcrumb}</p>
-              ) : null}
-              {title ? (
-                <h1 className="text-xl font-bold sm:text-2xl">{title}</h1>
-              ) : null}
-              {subtitle ? (
-                <p className="text-sm text-muted-foreground">{subtitle}</p>
-              ) : null}
-            </div>
+      <main className="flex min-w-0 flex-1 flex-col gap-5 p-6 pb-12 lg:px-7">
+        <header className="flex items-center justify-between">
+          <div>
+            {breadcrumb ? (
+              <p className="text-xs text-muted-foreground">{breadcrumb}</p>
+            ) : null}
+            {title ? <h1 className="text-2xl font-bold">{title}</h1> : null}
+            {subtitle ? (
+              <p className="text-sm text-muted-foreground">{subtitle}</p>
+            ) : null}
           </div>
           <div className="flex items-center gap-3.5">
             {action}
             <button
               type="button"
               onClick={() => navigate("/tickets")}
-              className="relative grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-brand-cream/60 bg-white text-[#5f5f5f]"
+              className="relative grid h-9 w-9 place-items-center rounded-lg border border-brand-cream/60 bg-white text-[#5f5f5f]"
               aria-label="Open support tickets"
             >
               <Bell className="h-[18px] w-[18px]" />

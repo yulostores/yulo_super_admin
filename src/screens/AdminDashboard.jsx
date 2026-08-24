@@ -300,7 +300,7 @@ export default function AdminDashboard() {
       {overviewLoading ? (
         <p className="text-sm text-muted-foreground">Loading platform stats…</p>
       ) : (
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
             icon={Store}
             iconClass="bg-[#F0592A] text-white"
@@ -394,7 +394,7 @@ export default function AdminDashboard() {
 
       {/* Revenue chart */}
       <Card>
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
           <h2 className="text-base font-bold">Revenue Overview</h2>
           <div className="flex gap-1 rounded-lg border border-brand-cream/70 p-1">
             {RANGES.map((r) => (
@@ -545,7 +545,7 @@ export default function AdminDashboard() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
             <h2 className="text-base font-bold">Hourly Activity</h2>
             {hourlyActivity ? (
               <p className="text-xs text-muted-foreground">
