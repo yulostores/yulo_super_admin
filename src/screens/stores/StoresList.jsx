@@ -41,6 +41,15 @@ const STATUS_OPTIONS = [
   { value: "rejected", label: "Rejected" },
 ];
 
+// The API has no "resubmit" endpoint: a rejected owner simply re-saves their store
+// settings, which bumps `updatedAt` and nothing else. Comparing it against `reviewedAt`
+// is the only signal an admin gets that a rejected application has been corrected and is
+// worth a second look — without it the Rejected filter is a pile with nothing to sort by.
+function editedSinceReview(store) {
+  if (!store.reviewedAt || !store.updatedAt) return false;
+  return new Date(store.updatedAt) > new Date(store.reviewedAt);
+}
+
 function RecentRegistrations() {
   const navigate = useNavigate();
   const { data } = useStores({ page: 1, limit: 5 });
@@ -283,6 +292,12 @@ export default function StoresList() {
                               <p className="text-xs text-muted-foreground">
                                 {storeCode(s._id)}
                               </p>
+                              {s.approvalStatus === "rejected" &&
+                              editedSinceReview(s) ? (
+                                <p className="text-xs font-semibold text-[#D9480F]">
+                                  Owner has updated their details since the rejection
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </TableCell>

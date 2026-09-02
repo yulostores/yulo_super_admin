@@ -203,6 +203,20 @@ export default function StoreDetail() {
               Reactivate
             </Button>
           ) : null}
+          {/* Without this a rejection was a dead end: the API accepts an approve from any
+              status, but the buttons above only appeared while "pending", so once an owner
+              had corrected what was flagged there was no way left to let them through. */}
+          {status === "rejected" ? (
+            <Button
+              size="sm"
+              onClick={() => approve.mutate()}
+              disabled={approve.isPending}
+              className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {approve.isPending ? "Approving…" : "Approve anyway"}
+            </Button>
+          ) : null}
           {status !== "pending" ? (
             <Button
               size="sm"
@@ -216,6 +230,29 @@ export default function StoreDetail() {
         </div>
       }
     >
+      {/* Why this store is in the state it's in. The reason an admin typed is the one
+          thing the owner is shown verbatim, so it has to be visible here too — otherwise
+          whoever picks the application up next has no idea what was asked for. */}
+      {status === "rejected" && store.rejectionReason ? (
+        <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-brand-maroon">
+          <span className="font-semibold">Rejected: </span>
+          {store.rejectionReason}
+        </p>
+      ) : null}
+
+      {/* There is no resubmit endpoint — a rejected owner just re-saves their store
+          settings, which bumps updatedAt and nothing else. That timestamp is the only
+          signal an admin gets that the application is worth a second look. */}
+      {status === "rejected" &&
+      store.reviewedAt &&
+      store.updatedAt &&
+      new Date(store.updatedAt) > new Date(store.reviewedAt) ? (
+        <p className="mb-4 rounded-xl border border-[#F5C99B] bg-[#FFF7ED] px-4 py-3 text-sm">
+          The owner has edited their details since this rejection (last saved{" "}
+          {formatDate(store.updatedAt)}). Re-check the sections below before deciding again.
+        </p>
+      ) : null}
+
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           {/* Profile */}
