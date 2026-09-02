@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { adminApi } from "@/api/admin.api";
 
 const storeKeys = {
@@ -11,7 +16,7 @@ export function useStores(params = {}) {
   return useQuery({
     queryKey: storeKeys.list(params),
     queryFn: () => adminApi.listStores(params).then((r) => r.data.data),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 

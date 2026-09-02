@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Bike,
   Calendar,
+  CheckCircle2,
   Clock,
   Download,
   FileText,
@@ -10,14 +11,18 @@ import {
   Mail,
   Package,
   Phone,
+  ShieldCheck,
   Star,
   Trash2,
   User,
+  XCircle,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -38,14 +43,27 @@ import {
   useReassignOrderPartner,
   useRemoveDeliveryPartner,
   useUpdateDeliveryPartner,
+  useVerifyDeliveryPartner,
+  useVerifyPartnerDocument,
 } from "@/hooks/admin/useDeliveryPartners";
-import AdminLayout, { formatDate, formatNumber, formatPrice } from "../AdminLayout";
-
-const PAYOUT_STATUS_VARIANT = {
-  pending: "warn",
-  processing: "info",
-  paid: "ok",
-};
+import {
+  ACCOUNT_TYPES,
+  DOCUMENT_STATUS_VARIANT,
+  PARTNER_DOCUMENT_TYPES,
+  PARTNER_STATUS_VARIANT,
+  PARTNER_STATUSES,
+  PARTNER_VERIFICATION_LABEL,
+  PARTNER_VERIFICATION_VARIANT,
+  PAYOUT_STATUS_VARIANT,
+  VEHICLE_TYPES,
+} from "@/lib/constants";
+import ReadOnlyField from "@/components/admin/ReadOnlyField";
+import { fileNameOf, initials } from "@/lib/format";
+import AdminLayout, {
+  formatDate,
+  formatNumber,
+  formatPrice,
+} from "../AdminLayout";
 
 function PayoutDetails({ partnerId }) {
   const [period, setPeriod] = useState("weekly");
@@ -87,7 +105,7 @@ function PayoutDetails({ partnerId }) {
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1 text-xs font-semibold capitalize transition ${
                 period === p
-                  ? "bg-[#D9480F] text-white"
+                  ? "bg-brand-orange text-white"
                   : "text-muted-foreground hover:bg-brand-cream/40"
               }`}
             >
@@ -108,10 +126,12 @@ function PayoutDetails({ partnerId }) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold">
-                  {formatDate(payout.periodStart)} – {formatDate(payout.periodEnd)}
+                  {formatDate(payout.periodStart)} –{" "}
+                  {formatDate(payout.periodEnd)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {payout.deliveriesCount} deliveries · ₹{payout.perDeliveryRate}/delivery
+                  {payout.deliveriesCount} deliveries · ₹
+                  {payout.perDeliveryRate}/delivery
                 </p>
               </div>
               <Badge
@@ -149,7 +169,7 @@ function PayoutDetails({ partnerId }) {
                     type="button"
                     onClick={() => save(payout._id)}
                     disabled={adjust.isPending}
-                    className="rounded-lg bg-[#D9480F] px-3 py-2 text-xs font-semibold text-white"
+                    className="rounded-lg bg-brand-orange px-3 py-2 text-xs font-semibold text-white"
                   >
                     Save
                   </button>
@@ -164,10 +184,22 @@ function PayoutDetails({ partnerId }) {
               </div>
             ) : (
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Field label="Gross Earnings" value={formatPrice(payout.grossEarnings)} />
-                <Field label="Incentives" value={formatPrice(payout.incentives)} />
-                <Field label="Deductions" value={formatPrice(payout.deductions)} />
-                <Field label="Net Payable" value={formatPrice(payout.netPayable)} />
+                <ReadOnlyField
+                  label="Gross Earnings"
+                  value={formatPrice(payout.grossEarnings)}
+                />
+                <ReadOnlyField
+                  label="Incentives"
+                  value={formatPrice(payout.incentives)}
+                />
+                <ReadOnlyField
+                  label="Deductions"
+                  value={formatPrice(payout.deductions)}
+                />
+                <ReadOnlyField
+                  label="Net Payable"
+                  value={formatPrice(payout.netPayable)}
+                />
               </div>
             )}
 
@@ -194,7 +226,10 @@ function PayoutDetails({ partnerId }) {
 
 function DeliveryAssignments({ partnerId }) {
   const { data, isLoading } = usePartnerOrders(partnerId, { limit: 10 });
-  const { data: activePartners } = useDeliveryPartners({ status: "active", limit: 50 });
+  const { data: activePartners } = useDeliveryPartners({
+    status: "active",
+    limit: 50,
+  });
   const reassign = useReassignOrderPartner();
 
   return (
@@ -209,7 +244,7 @@ function DeliveryAssignments({ partnerId }) {
         {(data?.orders ?? []).map((order) => (
           <div
             key={order._id}
-            className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F6EFE9] pb-2.5 last:border-0 last:pb-0"
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-line pb-2.5 last:border-0 last:pb-0"
           >
             <div>
               <p className="text-sm font-semibold">
@@ -222,7 +257,9 @@ function DeliveryAssignments({ partnerId }) {
             <div className="flex items-center gap-2">
               <Badge
                 variant={
-                  order.deliveryAssignment?.status === "delivered" ? "ok" : "warn"
+                  order.deliveryAssignment?.status === "delivered"
+                    ? "ok"
+                    : "warn"
                 }
                 className="capitalize"
               >
@@ -231,7 +268,10 @@ function DeliveryAssignments({ partnerId }) {
               {order.deliveryAssignment?.status !== "delivered" ? (
                 <Select
                   onValueChange={(newPartnerId) =>
-                    reassign.mutate({ orderId: order._id, partnerId: newPartnerId })
+                    reassign.mutate({
+                      orderId: order._id,
+                      partnerId: newPartnerId,
+                    })
                   }
                 >
                   <SelectTrigger className="w-[150px]">
@@ -261,39 +301,9 @@ function DeliveryAssignments({ partnerId }) {
   );
 }
 
-const STATUS_VARIANT = {
-  active: "ok",
-  busy: "warn",
-  inactive: "muted",
-  suspended: "danger",
-};
-
-const DOC_LABELS = {
-  aadhar_card: "Aadhaar Card",
-  driving_license: "Driving License",
-  vehicle_rc: "Vehicle RC",
-  insurance_document: "Insurance Document",
-  profile_photo: "Profile Photo",
-};
-
-function initials(name = "") {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-function Field({ label, value }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold">{value ?? "—"}</p>
-    </div>
-  );
-}
+const DOC_LABELS = Object.fromEntries(
+  PARTNER_DOCUMENT_TYPES.map((d) => [d.type, d.label]),
+);
 
 function SummaryRow({ icon: Icon, label, value, dot }) {
   return (
@@ -302,7 +312,9 @@ function SummaryRow({ icon: Icon, label, value, dot }) {
         <Icon className="h-3.5 w-3.5" /> {label}
       </span>
       <span className="flex items-center gap-1.5 text-sm font-semibold">
-        {dot ? <span className="h-1.5 w-1.5 rounded-full bg-brand-green" /> : null}
+        {dot ? (
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-green" />
+        ) : null}
         {value}
       </span>
     </div>
@@ -316,14 +328,135 @@ function isImageDoc(doc) {
   return doc.type === "profile_photo" || IMAGE_EXTENSIONS.includes(ext ?? "");
 }
 
-function docFileName(doc) {
-  if (!doc.url) return "—";
-  const last = doc.url.split("/").pop() ?? doc.url;
-  try {
-    return decodeURIComponent(last);
-  } catch {
-    return last;
+// PATCH /admin/delivery-partners/:id/verify — the KYC decision, separate from
+// the duty `status` select in the header. `notes` is required by the server for
+// anything other than an outright approval.
+function VerificationPanel({ partnerId, partner }) {
+  const verify = useVerifyDeliveryPartner(partnerId);
+  const [pending, setPending] = useState(null); // "reject" | "request_resubmission"
+  const [notes, setNotes] = useState("");
+
+  const current = partner.verificationStatus ?? "pending_documents";
+  const approved = current === "approved";
+
+  function submit(decision, decisionNotes) {
+    verify.mutate(
+      { decision, notes: decisionNotes },
+      {
+        onSuccess: () => {
+          setPending(null);
+          setNotes("");
+        },
+      },
+    );
   }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+        <h2 className="flex items-center gap-2 text-base font-bold">
+          <ShieldCheck className="h-4 w-4 text-brand-orange" />
+          KYC Verification
+        </h2>
+        <Badge
+          variant={PARTNER_VERIFICATION_VARIANT[current] ?? "muted"}
+          className="capitalize"
+        >
+          {PARTNER_VERIFICATION_LABEL[current] ?? current}
+        </Badge>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {partner.verificationNotes ? (
+          <p className="rounded-lg bg-brand-cream/20 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Last note: </span>
+            {partner.verificationNotes}
+          </p>
+        ) : null}
+
+        {partner.verifiedAt ? (
+          <p className="text-xs text-muted-foreground">
+            Approved on {formatDate(partner.verifiedAt)}
+          </p>
+        ) : null}
+
+        {verify.isError ? (
+          <p className="text-sm text-brand-maroon">{verify.error.message}</p>
+        ) : null}
+
+        {pending ? (
+          <div className="space-y-2">
+            <Label>
+              {pending === "reject"
+                ? "Why is this partner being rejected?"
+                : "What needs to be resubmitted?"}
+            </Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPending(null);
+                  setNotes("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!notes.trim() || verify.isPending}
+                onClick={() => submit(pending, notes.trim())}
+                className="bg-brand-orange text-white hover:brightness-105"
+              >
+                {verify.isPending ? "Saving…" : "Submit"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {!approved ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={verify.isPending}
+                onClick={() => submit("approve")}
+                className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Approve
+              </Button>
+            ) : null}
+            {current !== "rejected" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setPending("reject")}
+                className="gap-1.5 text-brand-maroon"
+              >
+                <XCircle className="h-4 w-4" /> Reject
+              </Button>
+            ) : null}
+            {current !== "resubmission_required" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setPending("request_resubmission")}
+              >
+                Request resubmission
+              </Button>
+            ) : null}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function PartnerDetail() {
@@ -332,6 +465,7 @@ export default function PartnerDetail() {
   const { data: partner, isLoading, error } = useDeliveryPartner(id);
   const update = useUpdateDeliveryPartner(id);
   const remove = useRemoveDeliveryPartner();
+  const verifyDoc = useVerifyPartnerDocument(id);
 
   const [removeOpen, setRemoveOpen] = useState(false);
   const [editingPersonal, setEditingPersonal] = useState(false);
@@ -387,7 +521,7 @@ export default function PartnerDetail() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["active", "busy", "inactive", "suspended"].map((s) => (
+              {PARTNER_STATUSES.map((s) => (
                 <SelectItem key={s} value={s} className="capitalize">
                   {s}
                 </SelectItem>
@@ -408,7 +542,7 @@ export default function PartnerDetail() {
         <CardContent className="flex flex-wrap items-start justify-between gap-6 p-5">
           <div className="flex items-start gap-4">
             <Avatar className="h-20 w-20">
-              <AvatarFallback className="bg-[#D9480F] text-xl font-semibold text-white">
+              <AvatarFallback className="bg-brand-orange text-xl font-semibold text-white">
                 {initials(partner.fullName)}
               </AvatarFallback>
             </Avatar>
@@ -426,7 +560,7 @@ export default function PartnerDetail() {
                 <Phone className="h-3.5 w-3.5" /> {partner.phone}
               </p>
               <Badge
-                variant={STATUS_VARIANT[partner.status] ?? "muted"}
+                variant={PARTNER_STATUS_VARIANT[partner.status] ?? "muted"}
                 className="mt-3 capitalize"
               >
                 {partner.status}
@@ -457,6 +591,7 @@ export default function PartnerDetail() {
         </CardContent>
       </Card>
 
+      <VerificationPanel partnerId={id} partner={partner} />
       <PayoutDetails partnerId={id} />
       <DeliveryAssignments partnerId={id} />
 
@@ -529,14 +664,14 @@ export default function PartnerDetail() {
           </>
         }
       >
-        <Field label="Full Name" value={partner.fullName} />
-        <Field label="Email Address" value={partner.email} />
-        <Field label="Phone Number" value={partner.phone} />
-        <Field
+        <ReadOnlyField label="Full Name" value={partner.fullName} />
+        <ReadOnlyField label="Email Address" value={partner.email} />
+        <ReadOnlyField label="Phone Number" value={partner.phone} />
+        <ReadOnlyField
           label="Date of Birth"
           value={partner.dateOfBirth ? formatDate(partner.dateOfBirth) : "—"}
         />
-        <Field
+        <ReadOnlyField
           label="Gender"
           value={
             partner.gender ? (
@@ -546,9 +681,9 @@ export default function PartnerDetail() {
             )
           }
         />
-        <Field label="Emergency Phone" value={partner.emergencyPhone} />
-        <Field label="Aadhar Number" value={partner.aadharNumber} />
-        <Field label="PAN Number" value={partner.panNumber} />
+        <ReadOnlyField label="Emergency Phone" value={partner.emergencyPhone} />
+        <ReadOnlyField label="Aadhar Number" value={partner.aadharNumber} />
+        <ReadOnlyField label="PAN Number" value={partner.panNumber} />
       </EditableCard>
 
       <EditableCard
@@ -597,11 +732,11 @@ export default function PartnerDetail() {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2_wheeler">2 Wheeler</SelectItem>
-                  <SelectItem value="ev_2_wheeler">EV 2 Wheeler</SelectItem>
-                  <SelectItem value="non_rto_2_wheeler">
-                    Non-RTO 2 Wheeler
-                  </SelectItem>
+                  {VEHICLE_TYPES.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>
+                      {v.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -658,9 +793,9 @@ export default function PartnerDetail() {
           </>
         }
       >
-        <Field label="Vehicle Model" value={partner.vehicle?.model} />
-        <Field label="Vehicle Number" value={partner.vehicle?.number} />
-        <Field
+        <ReadOnlyField label="Vehicle Model" value={partner.vehicle?.model} />
+        <ReadOnlyField label="Vehicle Number" value={partner.vehicle?.number} />
+        <ReadOnlyField
           label="Vehicle Type"
           value={
             partner.vehicle?.type ? (
@@ -672,16 +807,16 @@ export default function PartnerDetail() {
             )
           }
         />
-        <Field label="RC Number" value={partner.vehicle?.rcNumber} />
-        <Field
+        <ReadOnlyField label="RC Number" value={partner.vehicle?.rcNumber} />
+        <ReadOnlyField
           label="Insurance Provider"
           value={partner.vehicle?.insuranceProvider}
         />
-        <Field
+        <ReadOnlyField
           label="Insurance Number"
           value={partner.vehicle?.insuranceNumber}
         />
-        <Field
+        <ReadOnlyField
           label="Insurance Validity"
           value={
             partner.vehicle?.insuranceValidTill
@@ -715,22 +850,65 @@ export default function PartnerDetail() {
                 {DOC_LABELS[doc.type] ?? doc.type}
               </p>
               <p className="truncate text-xs text-muted-foreground">
-                {docFileName(doc)}
+                {fileNameOf(doc.url) ?? "—"}
               </p>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">
-                  Uploaded on {formatDate(doc.uploadedAt)}
+                  {formatDate(doc.uploadedAt)}
                 </p>
                 {doc.url ? (
                   <a
                     href={doc.url}
                     target="_blank"
                     rel="noreferrer"
+                    aria-label={`Open ${DOC_LABELS[doc.type] ?? doc.type}`}
                     className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-brand-cream/70 text-brand-orange hover:bg-brand-cream/20"
                   >
                     <Download className="h-3.5 w-3.5" />
                   </a>
                 ) : null}
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-brand-cream/60 pt-2">
+                <Badge
+                  variant={DOCUMENT_STATUS_VARIANT[doc.status] ?? "muted"}
+                  className="capitalize"
+                >
+                  {doc.status ?? "pending"}
+                </Badge>
+                <div className="flex items-center gap-1">
+                  {doc.status !== "verified" ? (
+                    <button
+                      type="button"
+                      title="Mark verified"
+                      disabled={verifyDoc.isPending}
+                      onClick={() =>
+                        verifyDoc.mutate({
+                          docType: doc.type,
+                          status: "verified",
+                        })
+                      }
+                      className="grid h-6 w-6 place-items-center rounded-full bg-status-ok-bg text-status-ok disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                  {doc.status !== "rejected" ? (
+                    <button
+                      type="button"
+                      title="Reject"
+                      disabled={verifyDoc.isPending}
+                      onClick={() =>
+                        verifyDoc.mutate({
+                          docType: doc.type,
+                          status: "rejected",
+                        })
+                      }
+                      className="grid h-6 w-6 place-items-center rounded-full bg-status-danger-bg text-brand-maroon disabled:opacity-50"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
           ))}
@@ -800,8 +978,11 @@ export default function PartnerDetail() {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="savings">Savings</SelectItem>
-                  <SelectItem value="current">Current</SelectItem>
+                  {ACCOUNT_TYPES.map((a) => (
+                    <SelectItem key={a.value} value={a.value}>
+                      {a.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -835,16 +1016,19 @@ export default function PartnerDetail() {
           </>
         }
       >
-        <Field label="Bank Name" value={partner.bankDetails?.bankName} />
-        <Field
+        <ReadOnlyField
+          label="Bank Name"
+          value={partner.bankDetails?.bankName}
+        />
+        <ReadOnlyField
           label="Account Holder Name"
           value={partner.bankDetails?.accountHolderName}
         />
-        <Field
+        <ReadOnlyField
           label="Account Number"
           value={partner.bankDetails?.accountNumber}
         />
-        <Field
+        <ReadOnlyField
           label="Account Type"
           value={
             partner.bankDetails?.accountType ? (
@@ -856,9 +1040,15 @@ export default function PartnerDetail() {
             )
           }
         />
-        <Field label="IFSC Code" value={partner.bankDetails?.ifscCode} />
-        <Field label="Branch Name" value={partner.bankDetails?.branchName} />
-        <Field label="UPI ID" value={partner.bankDetails?.upiId} />
+        <ReadOnlyField
+          label="IFSC Code"
+          value={partner.bankDetails?.ifscCode}
+        />
+        <ReadOnlyField
+          label="Branch Name"
+          value={partner.bankDetails?.branchName}
+        />
+        <ReadOnlyField label="UPI ID" value={partner.bankDetails?.upiId} />
         {/* "Payment Preference" appears in the Figma reference but there is
             no corresponding field on the DeliveryPartner.bankDetails schema
             (server/models/DeliveryPartner.js) — intentionally omitted rather

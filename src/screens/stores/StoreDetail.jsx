@@ -21,76 +21,25 @@ import {
   useUpdateStore,
   useVerifyDocument,
 } from "@/hooks/admin/useStores";
+import {
+  DAYS,
+  STORE_DOCUMENT_TYPES,
+  STORE_STATUS_LABEL,
+  STORE_STATUS_VARIANT,
+} from "@/lib/constants";
+import ReadOnlyField from "@/components/admin/ReadOnlyField";
+import { fileNameOf, hhmm, toHHMM } from "@/lib/format";
 import AdminLayout, { formatDate } from "../AdminLayout";
-
-const STATUS_VARIANT = {
-  pending: "warn",
-  active: "ok",
-  suspended: "danger",
-  rejected: "danger",
-  expired: "muted",
-};
-
-const STATUS_LABEL = {
-  pending: "Pending Approval",
-  active: "Approved",
-  suspended: "Suspended",
-  rejected: "Rejected",
-  expired: "Expired",
-};
-
-const DOCUMENT_TYPES = [
-  { type: "fssai_license", label: "FSSAI License" },
-  { type: "business_registration", label: "Business Registration" },
-  { type: "gst_certificate", label: "GST Certificate" },
-  { type: "pan_card", label: "Identity Proof (PAN)" },
-  { type: "address_proof", label: "Address Proof" },
-  { type: "bank_statement", label: "Bank Statement" },
-];
-
-function fileNameOf(url) {
-  if (!url) return null;
-  try {
-    return decodeURIComponent(url.split("/").pop().split("?")[0]);
-  } catch {
-    return url;
-  }
-}
-
-const DAYS = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-];
-
-function hhmm(value) {
-  if (value === undefined || value === null) return "";
-  const s = String(value).padStart(4, "0");
-  return `${s.slice(0, 2)}:${s.slice(2)}`;
-}
-
-function Field({ label, value }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold">{value ?? "—"}</p>
-    </div>
-  );
-}
 
 function ViewBox({ label, value, multiline }) {
   return (
     <div className="space-y-1.5">
-      {label ? (
-        <p className="text-xs text-muted-foreground">{label}</p>
-      ) : null}
+      {label ? <p className="text-xs text-muted-foreground">{label}</p> : null}
       <div
         className={`rounded-lg border border-brand-cream/70 bg-white px-3 py-2 text-sm ${
-          multiline ? "min-h-[72px] whitespace-pre-line" : "flex h-9 items-center"
+          multiline
+            ? "min-h-[72px] whitespace-pre-line"
+            : "flex h-9 items-center"
         }`}
       >
         {value || <span className="text-muted-foreground">—</span>}
@@ -103,9 +52,7 @@ function PhoneBox({ label, value, editable, onChange }) {
   const local = (value ?? "").replace(/^\+?91[\s-]?/, "");
   return (
     <div className="space-y-1.5">
-      {label ? (
-        <p className="text-xs text-muted-foreground">{label}</p>
-      ) : null}
+      {label ? <p className="text-xs text-muted-foreground">{label}</p> : null}
       <div className="flex gap-2">
         <div className="flex h-9 w-16 shrink-0 items-center justify-center gap-0.5 rounded-lg border border-brand-cream/70 bg-brand-cream/20 text-sm text-muted-foreground">
           +91 <ChevronDown className="h-3 w-3" />
@@ -207,8 +154,8 @@ export default function StoreDetail() {
       title={
         <span className="flex items-center gap-3">
           {store.name}
-          <Badge variant={STATUS_VARIANT[status] ?? "muted"}>
-            {STATUS_LABEL[status] ?? status}
+          <Badge variant={STORE_STATUS_VARIANT[status] ?? "muted"}>
+            {STORE_STATUS_LABEL[status] ?? status}
           </Badge>
         </span>
       }
@@ -221,7 +168,7 @@ export default function StoreDetail() {
                 size="sm"
                 onClick={() => approve.mutate()}
                 disabled={approve.isPending}
-                className="gap-1.5 bg-[#D9480F] text-white hover:brightness-105"
+                className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
               >
                 <CheckCircle2 className="h-4 w-4" /> Approve Store
               </Button>
@@ -251,7 +198,7 @@ export default function StoreDetail() {
               size="sm"
               onClick={() => reactivate.mutate()}
               disabled={reactivate.isPending}
-              className="bg-[#D9480F] text-white hover:brightness-105"
+              className="bg-brand-orange text-white hover:brightness-105"
             >
               Reactivate
             </Button>
@@ -286,10 +233,10 @@ export default function StoreDetail() {
                 </div>
               )}
               <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-                <Field label="Owner Name" value={store.ownerId?.name} />
-                <Field label="Email" value={store.ownerId?.email} />
-                <Field label="Phone" value={store.ownerId?.phone} />
-                <Field
+                <ReadOnlyField label="Owner Name" value={store.ownerId?.name} />
+                <ReadOnlyField label="Email" value={store.ownerId?.email} />
+                <ReadOnlyField label="Phone" value={store.ownerId?.phone} />
+                <ReadOnlyField
                   label="Plan"
                   value={<span className="capitalize">{store.plan}</span>}
                 />
@@ -327,7 +274,7 @@ export default function StoreDetail() {
                       ),
                     )
                   }
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${h.isOpen ? "bg-[#E8F5EC] text-[#2E7D32]" : "bg-[#F3F4F6] text-[#5F5F5F]"}`}
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${h.isOpen ? "bg-status-ok-bg text-brand-green" : "bg-status-muted-bg text-status-muted"}`}
                 >
                   {h.isOpen ? "Open" : "Closed"}
                 </button>
@@ -337,15 +284,11 @@ export default function StoreDetail() {
                       type="time"
                       value={hhmm(h.openTime)}
                       onChange={(e) => {
-                        const [hh, mm] = e.target.value.split(":");
+                        const next = toHHMM(e.target.value);
+                        if (next === null) return;
                         setHoursForm((cur) =>
                           cur.map((x, xi) =>
-                            xi === i
-                              ? {
-                                  ...x,
-                                  openTime: Number(hh) * 100 + Number(mm),
-                                }
-                              : x,
+                            xi === i ? { ...x, openTime: next } : x,
                           ),
                         );
                       }}
@@ -355,15 +298,11 @@ export default function StoreDetail() {
                       type="time"
                       value={hhmm(h.closeTime)}
                       onChange={(e) => {
-                        const [hh, mm] = e.target.value.split(":");
+                        const next = toHHMM(e.target.value);
+                        if (next === null) return;
                         setHoursForm((cur) =>
                           cur.map((x, xi) =>
-                            xi === i
-                              ? {
-                                  ...x,
-                                  closeTime: Number(hh) * 100 + Number(mm),
-                                }
-                              : x,
+                            xi === i ? { ...x, closeTime: next } : x,
                           ),
                         );
                       }}
@@ -466,13 +405,19 @@ export default function StoreDetail() {
               </>
             }
           >
-            <Field label="Radius (km)" value={store.delivery?.radiusKm} />
-            <Field label="Base Charge" value={store.delivery?.baseCharge} />
-            <Field
+            <ReadOnlyField
+              label="Radius (km)"
+              value={store.delivery?.radiusKm}
+            />
+            <ReadOnlyField
+              label="Base Charge"
+              value={store.delivery?.baseCharge}
+            />
+            <ReadOnlyField
               label="Free Threshold"
               value={store.delivery?.freeThreshold ?? "—"}
             />
-            <Field
+            <ReadOnlyField
               label="Estimated Time"
               value={
                 store.delivery?.estimatedMinutes
@@ -536,12 +481,18 @@ export default function StoreDetail() {
               </>
             }
           >
-            <Field
+            <ReadOnlyField
               label="Legal Entity Type"
               value={store.settings?.legalEntityType}
             />
-            <Field label="Owner Name" value={store.settings?.ownerName} />
-            <Field label="PAN Number" value={store.settings?.panNumber} />
+            <ReadOnlyField
+              label="Owner Name"
+              value={store.settings?.ownerName}
+            />
+            <ReadOnlyField
+              label="PAN Number"
+              value={store.settings?.panNumber}
+            />
           </EditableCard>
 
           {/* Licenses & Tax */}
@@ -611,13 +562,16 @@ export default function StoreDetail() {
               </>
             }
           >
-            <Field label="GST Number" value={store.settings?.gstNumber} />
-            <Field label="GST %" value={store.settings?.gstPercent} />
-            <Field
+            <ReadOnlyField
+              label="GST Number"
+              value={store.settings?.gstNumber}
+            />
+            <ReadOnlyField label="GST %" value={store.settings?.gstPercent} />
+            <ReadOnlyField
               label="Health Permit / FSSAI ID"
               value={store.settings?.healthPermitId}
             />
-            <Field
+            <ReadOnlyField
               label="Registration No."
               value={store.settings?.registrationNo}
             />
@@ -671,7 +625,10 @@ export default function StoreDetail() {
                   <Input
                     value={profileForm.category ?? ""}
                     onChange={(e) =>
-                      setProfileForm((f) => ({ ...f, category: e.target.value }))
+                      setProfileForm((f) => ({
+                        ...f,
+                        category: e.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -884,19 +841,19 @@ export default function StoreDetail() {
                 </h2>
                 <p className="shrink-0 text-right text-xs leading-tight text-muted-foreground">
                   {
-                    DOCUMENT_TYPES.filter((d) =>
+                    STORE_DOCUMENT_TYPES.filter((d) =>
                       (store.documents ?? []).some(
                         (sd) => sd.type === d.type && sd.url,
                       ),
                     ).length
                   }
-                  /{DOCUMENT_TYPES.length} Documents
+                  /{STORE_DOCUMENT_TYPES.length} Documents
                   <br />
                   Uploaded
                 </p>
               </div>
               <div className="mt-3 space-y-2.5">
-                {DOCUMENT_TYPES.map(({ type, label }) => {
+                {STORE_DOCUMENT_TYPES.map(({ type, label }) => {
                   const doc = (store.documents ?? []).find(
                     (d) => d.type === type,
                   );
@@ -924,7 +881,7 @@ export default function StoreDetail() {
                             href={doc.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="rounded-lg border border-brand-cream px-3 py-1.5 text-xs font-semibold text-[#5a403e] hover:bg-brand-cream/30"
+                            className="rounded-lg border border-brand-cream px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-cream/30"
                           >
                             View
                           </a>
@@ -940,7 +897,7 @@ export default function StoreDetail() {
                                   status: "verified",
                                 })
                               }
-                              className="grid h-7 w-7 place-items-center rounded-full bg-[#E8F5EC] text-[#2E7D32]"
+                              className="grid h-7 w-7 place-items-center rounded-full bg-status-ok-bg text-brand-green"
                             >
                               <CheckCircle2 className="h-4 w-4" />
                             </button>
@@ -953,7 +910,7 @@ export default function StoreDetail() {
                                   status: "rejected",
                                 })
                               }
-                              className="grid h-7 w-7 place-items-center rounded-full bg-[#FCE9E4] text-[#B11226]"
+                              className="grid h-7 w-7 place-items-center rounded-full bg-status-danger-bg text-brand-maroon"
                             >
                               <XCircle className="h-4 w-4" />
                             </button>
@@ -961,14 +918,14 @@ export default function StoreDetail() {
                         ) : doc?.status === "verified" ? (
                           <span
                             title="Verified"
-                            className="grid h-6 w-6 place-items-center rounded-full bg-[#2E7D32] text-white"
+                            className="grid h-6 w-6 place-items-center rounded-full bg-brand-green text-white"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                           </span>
                         ) : doc?.status === "rejected" ? (
                           <span
                             title="Rejected"
-                            className="grid h-6 w-6 place-items-center rounded-full bg-[#B11226] text-white"
+                            className="grid h-6 w-6 place-items-center rounded-full bg-brand-maroon text-white"
                           >
                             <XCircle className="h-4 w-4" />
                           </span>
@@ -1013,7 +970,7 @@ export default function StoreDetail() {
                       onSuccess: () => setNote(""),
                     })
                   }
-                  className="w-full bg-[#D9480F] text-white hover:brightness-105"
+                  className="w-full bg-brand-orange text-white hover:brightness-105"
                 >
                   {addNote.isPending ? "Saving…" : "Save Note"}
                 </Button>

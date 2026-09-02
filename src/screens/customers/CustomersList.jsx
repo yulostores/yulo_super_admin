@@ -25,24 +25,15 @@ import PaginationBar from "@/components/admin/PaginationBar";
 import { usePagination } from "@/hooks/admin/usePagination";
 import { useDebouncedValue } from "@/hooks/admin/useDebouncedValue";
 import { useCustomers } from "@/hooks/admin/useCustomers";
+import { initials } from "@/lib/format";
 import AdminLayout, { formatDate } from "../AdminLayout";
-
-function initials(name = "") {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 export default function CustomersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [profileStatus, setProfileStatus] = useState("all");
-  const { page, limit, setPage } = usePagination(10);
+  const { page, limit, setPage, setLimit } = usePagination(10);
   const debouncedSearch = useDebouncedValue(search);
 
   const { data, isLoading, error } = useCustomers({
@@ -67,7 +58,7 @@ export default function CustomersList() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search store name, owner, email, phone..."
+            placeholder="Search by name, email or phone…"
             className="pl-9"
           />
         </div>
@@ -132,7 +123,7 @@ export default function CustomersList() {
                   <TableCell className="pl-6">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-[#D9480F] text-[11px] font-semibold text-white">
+                        <AvatarFallback className="bg-brand-orange text-[11px] font-semibold text-white">
                           {initials(c.name)}
                         </AvatarFallback>
                       </Avatar>
@@ -154,7 +145,9 @@ export default function CustomersList() {
                       variant={c.profileStatus === "complete" ? "ok" : "muted"}
                       className="capitalize"
                     >
-                      {c.profileStatus === "complete" ? "Complete" : "Incomplete"}
+                      {c.profileStatus === "complete"
+                        ? "Complete"
+                        : "Incomplete"}
                     </Badge>
                   </TableCell>
                   <TableCell className="pr-6">
@@ -201,6 +194,8 @@ export default function CustomersList() {
         total={data?.total}
         onPageChange={setPage}
         itemLabel="customers"
+        pageSize={limit}
+        onPageSizeChange={setLimit}
       />
     </AdminLayout>
   );

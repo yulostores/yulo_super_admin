@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { adminApi } from "@/api/admin.api";
 
 const ticketKeys = {
@@ -11,7 +16,7 @@ export function useTickets(params = {}) {
   return useQuery({
     queryKey: ticketKeys.list(params),
     queryFn: () => adminApi.listTickets(params).then((r) => r.data.data),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 

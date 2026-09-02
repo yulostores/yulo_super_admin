@@ -1,5 +1,4 @@
-// Platform Admin shell — light sidebar + top bar, matches the FoodHub Super
-// Admin design. Used across every screen in this app.
+// Platform Admin shell — light sidebar + top bar. Used by every screen in this app.
 
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -23,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { initials } from "@/lib/format";
+import { BRAND_NAME, BRAND_SUFFIX, PORTAL_NAME } from "@/lib/brand";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { useOpenTicketCount } from "@/hooks/admin/useTickets";
 
@@ -35,41 +36,10 @@ const NAV = [
   { to: "/tickets", label: "Support & Tickets", icon: Headset },
 ];
 
-export function formatPrice(value) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(value ?? 0);
-}
-
-export function formatNumber(value) {
-  return new Intl.NumberFormat("en-IN").format(value ?? 0);
-}
-
-export function formatDate(value) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function initials(name = "") {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
 function UserMenu({ compact = false }) {
   const navigate = useNavigate();
   const { user, logout } = useAdminAuth();
-  const name = user?.name ?? "Super Admin";
+  const name = user?.name ?? PORTAL_NAME;
   const email = user?.email ?? "";
 
   async function handleLogout() {
@@ -89,14 +59,14 @@ function UserMenu({ compact = false }) {
           )}
         >
           <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-[#D9480F] text-xs font-semibold text-white">
-              {initials(name) || "SA"}
+            <AvatarFallback className="bg-brand-orange text-xs font-semibold text-white">
+              {initials(name)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-sm font-semibold">{name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              Super Admin
+              {PORTAL_NAME}
             </p>
           </div>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -119,6 +89,9 @@ function UserMenu({ compact = false }) {
   );
 }
 
+// Re-exported for the screens that import formatters alongside the layout.
+export { formatPrice, formatNumber, formatDate } from "@/lib/format";
+
 export default function AdminLayout({
   children,
   title,
@@ -133,18 +106,19 @@ export default function AdminLayout({
   const openTickets = useOpenTicketCount();
 
   return (
-    <div className="flex min-h-screen bg-#fafaf8 font-sans text-[#24190f]">
+    <div className="flex min-h-screen bg-brand-surface font-sans text-brand-ink">
       <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-brand-cream/60 bg-white">
         <div>
           <div className="flex items-center gap-3 px-6 pb-6 pt-6">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#D9480F] text-white">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-orange text-white">
               <Store className="h-5 w-5" />
             </span>
             <div className="leading-tight">
               <p className="text-lg font-bold">
-                Food<span className="text-brand-orange">Hub</span>
+                {BRAND_NAME}
+                <span className="text-brand-orange">{BRAND_SUFFIX}</span>
               </p>
-              <p className="text-[11px] text-muted-foreground">Super Admin</p>
+              <p className="text-[11px] text-muted-foreground">{PORTAL_NAME}</p>
             </div>
           </div>
 
@@ -160,8 +134,8 @@ export default function AdminLayout({
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors",
                     active
-                      ? "bg-[#D9480F] text-white shadow-sm"
-                      : "text-[#5a453a] hover:bg-brand-cream/40",
+                      ? "bg-brand-orange text-white shadow-sm"
+                      : "text-brand-ink2 hover:bg-brand-cream/40",
                   )}
                 >
                   <Icon
@@ -196,7 +170,7 @@ export default function AdminLayout({
             <button
               type="button"
               onClick={() => navigate("/tickets")}
-              className="relative grid h-9 w-9 place-items-center rounded-lg border border-brand-cream/60 bg-white text-[#5f5f5f]"
+              className="relative grid h-9 w-9 place-items-center rounded-lg border border-brand-cream/60 bg-white text-status-muted"
               aria-label="Open support tickets"
             >
               <Bell className="h-[18px] w-[18px]" />

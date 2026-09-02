@@ -20,15 +20,14 @@ import {
 import PaginationBar from "@/components/admin/PaginationBar";
 import { usePagination } from "@/hooks/admin/usePagination";
 import { useTickets } from "@/hooks/admin/useTickets";
+import {
+  TICKET_CATEGORIES,
+  TICKET_PRIORITIES,
+  TICKET_PRIORITY_VARIANT,
+  TICKET_STATUS_VARIANT,
+  TICKET_STATUSES,
+} from "@/lib/constants";
 import AdminLayout, { formatDate } from "../AdminLayout";
-
-const STATUS_VARIANT = {
-  open: "danger",
-  in_progress: "info",
-  resolved: "ok",
-  closed: "muted",
-};
-const PRIORITY_VARIANT = { low: "muted", medium: "warn", high: "danger" };
 
 export default function TicketsList() {
   const navigate = useNavigate();
@@ -36,7 +35,7 @@ export default function TicketsList() {
   const status = searchParams.get("status") ?? "all";
   const [priority, setPriority] = useState("all");
   const [category, setCategory] = useState("all");
-  const { page, limit, setPage } = usePagination(10);
+  const { page, limit, setPage, setLimit } = usePagination(10);
 
   const { data, isLoading, error } = useTickets({
     status: status === "all" ? undefined : status,
@@ -64,10 +63,11 @@ export default function TicketsList() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
+            {TICKET_STATUSES.map((s) => (
+              <SelectItem key={s} value={s} className="capitalize">
+                {s.replace(/_/g, " ")}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select
@@ -82,9 +82,11 @@ export default function TicketsList() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Priority</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="high">High</SelectItem>
+            {TICKET_PRIORITIES.map((p) => (
+              <SelectItem key={p} value={p} className="capitalize">
+                {p}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select
@@ -99,11 +101,11 @@ export default function TicketsList() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="billing">Billing</SelectItem>
-            <SelectItem value="technical">Technical</SelectItem>
-            <SelectItem value="account">Account</SelectItem>
-            <SelectItem value="delivery">Delivery</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
+            {TICKET_CATEGORIES.map((c) => (
+              <SelectItem key={c} value={c} className="capitalize">
+                {c}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -143,7 +145,7 @@ export default function TicketsList() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={PRIORITY_VARIANT[t.priority] ?? "muted"}
+                      variant={TICKET_PRIORITY_VARIANT[t.priority] ?? "muted"}
                       className="capitalize"
                     >
                       {t.priority}
@@ -151,7 +153,7 @@ export default function TicketsList() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={STATUS_VARIANT[t.status] ?? "muted"}
+                      variant={TICKET_STATUS_VARIANT[t.status] ?? "muted"}
                       className="capitalize"
                     >
                       {t.status?.replace(/_/g, " ")}
@@ -192,6 +194,8 @@ export default function TicketsList() {
         total={data?.total}
         onPageChange={setPage}
         itemLabel="tickets"
+        pageSize={limit}
+        onPageSizeChange={setLimit}
       />
     </AdminLayout>
   );

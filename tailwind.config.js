@@ -46,6 +46,7 @@ export default {
         brand: {
           red: "#A4161A",
           orange: "#D9480F",
+          orange2: "#F0592A",
           maroon: "#B11226",
           cream: "#F5DFCE",
           cream2: "#FAE4D3",
@@ -54,6 +55,34 @@ export default {
           page: "#FFF8F5",
           saffron: "#F2A65A",
           green: "#2E7D32",
+          // Supporting palette — these were inlined as arbitrary-value hex
+          // literals across the screens (48 copies of #D9480F alone).
+          blue: "#1565C0",
+          blue2: "#1E88E5",
+          teal: "#0E7C7B",
+          ink: "#24190F",
+          ink2: "#5A453A",
+          muted: "#8A7566",
+          line: "#F6EFE9",
+          neutral: "#9CA3AF",
+          surface: "#FAFAF8",
+          hover: "#F5EDE4",
+          amber: "#F59E0B",
+          indigo: "#3B73D4",
+          leaf: "#43A047",
+        },
+        // Status tints used by Badge and the status pills.
+        status: {
+          ok: "#2E7D32",
+          "ok-bg": "#E8F5EC",
+          warn: "#D9480F",
+          "warn-bg": "#FFF3E0",
+          info: "#1565C0",
+          "info-bg": "#E7F0FB",
+          danger: "#B11226",
+          "danger-bg": "#FCE9E4",
+          muted: "#5F5F5F",
+          "muted-bg": "#F3F4F6",
         },
       },
       borderRadius: {

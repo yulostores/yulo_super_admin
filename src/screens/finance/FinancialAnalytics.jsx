@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Cell,
@@ -14,11 +14,9 @@ import {
 } from "recharts";
 import {
   ArrowRight,
-  CalendarDays,
   CreditCard,
   Download,
   Percent,
-  TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -42,37 +40,26 @@ import {
   useEarningsVsSpending,
   useFinanceRestaurants,
 } from "@/hooks/admin/useFinance";
+import { STORE_STATUS_VARIANT } from "@/lib/constants";
+import { CHART } from "@/lib/palette";
+import { initials } from "@/lib/format";
 import AdminLayout, { formatNumber, formatPrice } from "../AdminLayout";
 
-const STATUS_VARIANT = {
-  pending: "warn",
-  active: "ok",
-  suspended: "danger",
-  rejected: "danger",
-  expired: "muted",
-};
+// How far back the trend charts and the overview totals look.
+const RANGES = [
+  { months: 3, label: "Last 3 months" },
+  { months: 6, label: "Last 6 months" },
+  { months: 12, label: "Last 12 months" },
+];
 
 function monthLabel(date) {
   return new Date(date).toLocaleDateString("en-IN", { month: "short" });
 }
 
-function initials(name = "") {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
 function LegendDot({ color, label }) {
   return (
     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span
-        className="h-2 w-2 rounded-full"
-        style={{ background: color }}
-      />
+      <span className="h-2 w-2 rounded-full" style={{ background: color }} />
       {label}
     </span>
   );
@@ -102,6 +89,13 @@ function StatCard({ icon: Icon, iconClass, label, value, sub, action }) {
   );
 }
 
+// RFC 4180 quoting — restaurant names routinely contain commas, which
+// previously shifted every column after the name in the exported file.
+function csvCell(value) {
+  const str = value == null ? "" : String(value);
+  return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+}
+
 function downloadCsv(rows) {
   const header = [
     "Restaurant",
@@ -122,34 +116,55 @@ function downloadCsv(rows) {
       r.onlineRevenue,
       r.dineInRevenue,
       r.totalRevenue,
-      r.commission.toFixed(2),
+      r.commission?.toFixed(2),
       r.growthPercent == null ? "New" : r.growthPercent.toFixed(1),
       r.status,
-    ].join(","),
+    ]
+      .map(csvCell)
+      .join(","),
   );
-  const csv = [header.join(","), ...lines].join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
+  // BOM so Excel opens the export as UTF-8.
+  const csv = "﻿" + [header.join(","), ...lines].join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = "restaurant-revenue.csv";
+  a.download = `restaurant-revenue-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 export default function FinancialAnalytics() {
   const navigate = useNavigate();
-  const { data: overview, isLoading: overviewLoading } = useFinanceOverview();
-  const { data: trend } = useRevenueTrend(12);
-  const { data: earningsVsSpending } = useEarningsVsSpending(12);
-  const { page, limit, setPage } = usePagination(10);
-  const { data: restaurantData } = useFinanceRestaurants({ page, limit });
+  const [months, setMonths] = useState(12);
+
+  // The overview and the restaurant table accept an explicit from/to window;
+  // the trend endpoints take a month count. Both are driven by one control.
+  const { from, to } = useMemo(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setMonth(start.getMonth() - months);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }, [months]);
+
+  const { data: overview, isLoading: overviewLoading } = useFinanceOverview({
+    from,
+    to,
+  });
+  const { data: trend } = useRevenueTrend(months);
+  const { data: earningsVsSpending } = useEarningsVsSpending(months);
+  const { page, limit, setPage, setLimit } = usePagination(10);
+  const { data: restaurantData } = useFinanceRestaurants({
+    page,
+    limit,
+    from,
+    to,
+  });
 
   const revenueSourceDonut = useMemo(() => {
     if (!overview) return [];
     return [
-      { name: "Online", value: overview.onlineRevenue, color: "#1565C0" },
-      { name: "Dine-in", value: overview.dineInRevenue, color: "#2E7D32" },
+      { name: "Online", value: overview.onlineRevenue, color: CHART.online },
+      { name: "Dine-in", value: overview.dineInRevenue, color: CHART.dineIn },
     ].filter((d) => d.value > 0);
   }, [overview]);
 
@@ -159,14 +174,18 @@ export default function FinancialAnalytics() {
       {
         name: "Commission",
         value: overview.commissionRevenue,
-        color: "#2E7D32",
+        color: CHART.commission,
       },
       {
         name: "Partner cost",
         value: overview.deliveryPartnerPayout,
-        color: "#D9480F",
+        color: CHART.spend,
       },
-      { name: "Net profit", value: overview.netPlatformProfit, color: "#1565C0" },
+      {
+        name: "Net profit",
+        value: overview.netPlatformProfit,
+        color: CHART.profit,
+      },
     ].filter((d) => d.value > 0);
   }, [overview]);
 
@@ -176,12 +195,14 @@ export default function FinancialAnalytics() {
       subtitle="Monitor platform revenue, restaurant earnings, commissions, and operational spending."
     >
       {overviewLoading ? (
-        <p className="text-sm text-muted-foreground">Loading finance overview…</p>
+        <p className="text-sm text-muted-foreground">
+          Loading finance overview…
+        </p>
       ) : (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             icon={CreditCard}
-            iconClass="bg-[#F0592A] text-white"
+            iconClass="bg-brand-orange2 text-white"
             label="Total Gross Revenue"
             value={formatPrice(overview?.grossRevenue)}
             sub={`Online ${formatPrice(overview?.onlineRevenue)} · Dine-in ${formatPrice(overview?.dineInRevenue)}`}
@@ -197,7 +218,7 @@ export default function FinancialAnalytics() {
           />
           <StatCard
             icon={Wallet}
-            iconClass="bg-[#1E88E5] text-[#ffffff]"
+            iconClass="bg-brand-blue2 text-white"
             label="Delivery Partner Payout"
             value={formatPrice(overview?.deliveryPartnerPayout)}
             sub="Operational spending"
@@ -213,14 +234,14 @@ export default function FinancialAnalytics() {
           />
           <StatCard
             icon={Percent}
-            iconClass="bg-[#0E7C7B] text-[#ffffff]"
+            iconClass="bg-brand-teal text-white"
             label="Yulo Commission Revenue"
             value={formatPrice(overview?.commissionRevenue)}
             sub="Platform earnings"
           />
           <StatCard
             icon={TrendingUp}
-            iconClass="bg-[#3B73D4] text-[#ffffff]"
+            iconClass="bg-brand-indigo text-white"
             label="Net Platform Profit"
             value={formatPrice(overview?.netPlatformProfit)}
             sub="Net earnings after deducting delivery partner payouts."
@@ -229,17 +250,29 @@ export default function FinancialAnalytics() {
       )}
 
       <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-lg border border-brand-cream bg-white px-3 py-1.5 text-xs font-semibold text-[#5a453a] hover:bg-brand-cream/30"
-        >
-          <CalendarDays className="h-3.5 w-3.5" />
-          Last 12 months
-        </button>
+        <div className="flex gap-1 rounded-lg border border-brand-cream/70 p-1">
+          {RANGES.map((r) => (
+            <button
+              key={r.months}
+              type="button"
+              onClick={() => {
+                setMonths(r.months);
+                setPage(1);
+              }}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                months === r.months
+                  ? "bg-brand-orange text-white"
+                  : "text-muted-foreground hover:bg-brand-cream/40"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={() => downloadCsv(restaurantData?.rows ?? [])}
-          className="flex items-center gap-1.5 rounded-lg bg-[#D9480F] px-3 py-1.5 text-xs font-semibold text-white"
+          className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white"
         >
           <Download className="h-3.5 w-3.5" />
           Export report
@@ -255,24 +288,24 @@ export default function FinancialAnalytics() {
             <h2 className="text-base font-bold">Revenue trend</h2>
           </div>
           <div className="flex items-center gap-3">
-            <LegendDot color="#1565C0" label="Online delivery" />
-            <LegendDot color="#2E7D32" label="Dine-in" />
+            <LegendDot color={CHART.online} label="Online delivery" />
+            <LegendDot color={CHART.dineIn} label="Dine-in" />
           </div>
         </CardHeader>
         <CardContent>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trend ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F6EFE9" />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
                 <XAxis
                   dataKey="date"
                   tickFormatter={monthLabel}
-                  tick={{ fontSize: 11, fill: "#8a7566" }}
+                  tick={{ fontSize: 11, fill: CHART.axis }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "#8a7566" }}
+                  tick={{ fontSize: 11, fill: CHART.axis }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -284,7 +317,7 @@ export default function FinancialAnalytics() {
                   type="monotone"
                   dataKey="online"
                   name="Online delivery"
-                  stroke="#1565C0"
+                  stroke={CHART.online}
                   strokeWidth={2}
                   dot={false}
                 />
@@ -292,7 +325,7 @@ export default function FinancialAnalytics() {
                   type="monotone"
                   dataKey="dineIn"
                   name="Dine-in"
-                  stroke="#2E7D32"
+                  stroke={CHART.dineIn}
                   strokeWidth={2}
                   dot={false}
                 />
@@ -310,24 +343,24 @@ export default function FinancialAnalytics() {
             </p>
             <h2 className="text-base font-bold">Platform profitability</h2>
             <div className="flex items-center gap-3 pt-1">
-              <LegendDot color="#2E7D32" label="Commission revenue" />
-              <LegendDot color="#D9480F" label="Delivery partner spend" />
+              <LegendDot color={CHART.commission} label="Commission revenue" />
+              <LegendDot color={CHART.spend} label="Delivery partner spend" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={earningsVsSpending ?? []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F6EFE9" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
                   <XAxis
                     dataKey="date"
                     tickFormatter={monthLabel}
-                    tick={{ fontSize: 11, fill: "#8a7566" }}
+                    tick={{ fontSize: 11, fill: CHART.axis }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#8a7566" }}
+                    tick={{ fontSize: 11, fill: CHART.axis }}
                     axisLine={false}
                     tickLine={false}
                   />
@@ -339,7 +372,7 @@ export default function FinancialAnalytics() {
                     type="monotone"
                     dataKey="earnings"
                     name="Commission revenue"
-                    stroke="#2E7D32"
+                    stroke={CHART.dineIn}
                     strokeWidth={2}
                     dot={false}
                   />
@@ -347,7 +380,7 @@ export default function FinancialAnalytics() {
                     type="monotone"
                     dataKey="spending"
                     name="Delivery partner spend"
-                    stroke="#D9480F"
+                    stroke={CHART.spend}
                     strokeWidth={2}
                     dot={false}
                   />
@@ -433,7 +466,9 @@ export default function FinancialAnalytics() {
                         />
                         {d.name}
                       </span>
-                      <span className="font-semibold">{formatPrice(d.value)}</span>
+                      <span className="font-semibold">
+                        {formatPrice(d.value)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -470,14 +505,16 @@ export default function FinancialAnalytics() {
                   <TableCell className="pl-6 font-semibold">
                     <div className="flex items-center gap-2.5">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-[#D9480F] text-[11px] font-semibold text-white">
+                        <AvatarFallback className="bg-brand-orange text-[11px] font-semibold text-white">
                           {initials(r.name)}
                         </AvatarFallback>
                       </Avatar>
                       {r.name}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{r.city}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {r.city}
+                  </TableCell>
                   <TableCell>{formatNumber(r.orders)}</TableCell>
                   <TableCell>{formatPrice(r.onlineRevenue)}</TableCell>
                   <TableCell>{formatPrice(r.dineInRevenue)}</TableCell>
@@ -487,7 +524,7 @@ export default function FinancialAnalytics() {
                   <TableCell>{formatPrice(r.commission)}</TableCell>
                   <TableCell className="pr-6">
                     <Badge
-                      variant={STATUS_VARIANT[r.status] ?? "muted"}
+                      variant={STORE_STATUS_VARIANT[r.status] ?? "muted"}
                       className="capitalize"
                     >
                       {r.status}
@@ -515,6 +552,8 @@ export default function FinancialAnalytics() {
         total={restaurantData?.total}
         onPageChange={setPage}
         itemLabel="restaurants"
+        pageSize={limit}
+        onPageSizeChange={setLimit}
       />
     </AdminLayout>
   );

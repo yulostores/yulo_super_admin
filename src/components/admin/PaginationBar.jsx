@@ -8,13 +8,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Builds a compact page list like [1,2,3,4,"…",N] for the numbered pager.
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+// A compact window around the current page: [1, "…", 4, 5, 6, "…", 20].
 function getPageNumbers(page, pages) {
-  if (pages <= 5) return Array.from({ length: pages }, (_, i) => i + 1);
-  const nums = new Set([1, 2, 3, 4, page]);
-  return [...nums].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  const window = new Set([1, pages, page]);
+  for (const offset of [-1, 1]) {
+    const n = page + offset;
+    if (n > 1 && n < pages) window.add(n);
+  }
+  // Keep the row a stable width when the current page sits at either end.
+  if (page <= 3) [2, 3, 4].forEach((n) => window.add(n));
+  if (page >= pages - 2)
+    [pages - 3, pages - 2, pages - 1].forEach((n) => window.add(n));
+  return [...window].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
 }
 
+function ArrowButton({ disabled, onClick, label, children }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={label}
+      className="grid h-8 w-8 place-items-center rounded-lg border border-brand-cream bg-white text-brand-ink2 transition disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * One pagination layout for every admin table. The page-size dropdown appears
+ * only when the caller supplies `onPageSizeChange` — previously this component
+ * carried two entirely separate renderings of the same control.
+ */
 export default function PaginationBar({
   page,
   pages,
@@ -23,66 +52,69 @@ export default function PaginationBar({
   itemLabel = "items",
   pageSize,
   onPageSizeChange,
-  pageSizeOptions = [10, 20, 50, 100],
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
 }) {
-  // Opt-in rich layout (numbered pages + "Showing x to y" + page-size
-  // dropdown) — only used when a consumer passes onPageSizeChange, so
-  // existing callers keep their current simple layout untouched.
-  if (onPageSizeChange) {
-    const safePages = pages || 1;
-    const start = total ? (page - 1) * (pageSize || 10) + 1 : 0;
-    const end = total ? Math.min(page * (pageSize || 10), total) : 0;
-    const pageNumbers = getPageNumbers(page, safePages);
+  const totalPages = pages || 1;
+  const size = pageSize || 10;
+  const start = total ? (page - 1) * size + 1 : 0;
+  const end = total ? Math.min(page * size, total) : 0;
 
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <p className="text-xs text-muted-foreground">
-          {total ? (
-            <>
-              Showing {start} to {end} of {total} {itemLabel}
-            </>
-          ) : (
-            `0 ${itemLabel}`
-          )}
-        </p>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-brand-cream bg-white text-[#5a453a] disabled:opacity-40"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          {pageNumbers.map((n, i) => (
-            <span key={n} className="flex items-center gap-1.5">
-              {i > 0 && n - pageNumbers[i - 1] > 1 ? (
-                <span className="px-1 text-xs text-muted-foreground">…</span>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => onPageChange(n)}
-                className={cn(
-                  "grid h-8 w-8 place-items-center rounded-lg border text-xs font-semibold transition",
-                  n === page
-                    ? "border-transparent bg-[#D9480F] text-white"
-                    : "border-brand-cream bg-white text-[#5a453a] hover:bg-brand-cream/30",
-                )}
-              >
-                {n}
-              </button>
-            </span>
-          ))}
-          <button
-            type="button"
-            disabled={page >= safePages}
-            onClick={() => onPageChange(page + 1)}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-brand-cream bg-white text-[#5a453a] disabled:opacity-40"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+  if (!total) return null;
+
+  const pageNumbers = getPageNumbers(page, totalPages);
+
+  return (
+    <nav
+      aria-label={`${itemLabel} pagination`}
+      className="flex flex-wrap items-center justify-between gap-3 px-1"
+    >
+      <p className="text-xs text-muted-foreground">
+        Showing {start}–{end} of {total} {itemLabel}
+      </p>
+
+      <div className="flex items-center gap-1.5">
+        <ArrowButton
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          label="Previous page"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </ArrowButton>
+
+        {totalPages > 1
+          ? pageNumbers.map((n, i) => (
+              <span key={n} className="flex items-center gap-1.5">
+                {i > 0 && n - pageNumbers[i - 1] > 1 ? (
+                  <span className="px-1 text-xs text-muted-foreground">…</span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onPageChange(n)}
+                  aria-current={n === page ? "page" : undefined}
+                  className={cn(
+                    "grid h-8 w-8 place-items-center rounded-lg border text-xs font-semibold transition",
+                    n === page
+                      ? "border-transparent bg-brand-orange text-white"
+                      : "border-brand-cream bg-white text-brand-ink2 hover:bg-brand-cream/30",
+                  )}
+                >
+                  {n}
+                </button>
+              </span>
+            ))
+          : null}
+
+        <ArrowButton
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          label="Next page"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </ArrowButton>
+
+        {onPageSizeChange ? (
           <Select
-            value={String(pageSize || 10)}
+            value={String(size)}
             onValueChange={(v) => onPageSizeChange(Number(v))}
           >
             <SelectTrigger className="ml-1 h-8 w-[100px] text-xs">
@@ -96,42 +128,8 @@ export default function PaginationBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        ) : null}
       </div>
-    );
-  }
-
-  if (!pages || pages <= 1) {
-    return total ? (
-      <p className="px-1 text-xs text-muted-foreground">
-        {total} {itemLabel}
-      </p>
-    ) : null;
-  }
-
-  return (
-    <div className="flex items-center justify-between px-1">
-      <p className="text-xs text-muted-foreground">
-        Page {page} of {pages} · {total} {itemLabel}
-      </p>
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
-          className="grid h-8 w-8 place-items-center rounded-lg border border-brand-cream bg-white text-[#5a453a] disabled:opacity-40"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          disabled={page >= pages}
-          onClick={() => onPageChange(page + 1)}
-          className="grid h-8 w-8 place-items-center rounded-lg border border-brand-cream bg-white text-[#5a453a] disabled:opacity-40"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
+    </nav>
   );
 }

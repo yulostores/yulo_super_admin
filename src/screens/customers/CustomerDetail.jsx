@@ -4,17 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useCustomer, useSetCustomerStatus } from "@/hooks/admin/useCustomers";
+import { initials } from "@/lib/format";
 import AdminLayout, { formatDate } from "../AdminLayout";
-
-function initials(name = "") {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 export default function CustomerDetail() {
   const { id } = useParams();
@@ -49,7 +40,9 @@ export default function CustomerDetail() {
           variant="outline"
           onClick={() => setStatus.mutate(!customer.isActive)}
           disabled={setStatus.isPending}
-          className={customer.isActive ? "text-brand-maroon" : "text-[#2E7D32]"}
+          className={
+            customer.isActive ? "text-brand-maroon" : "text-brand-green"
+          }
         >
           {setStatus.isPending
             ? "Working…"
@@ -62,7 +55,7 @@ export default function CustomerDetail() {
       <Card>
         <CardContent className="flex flex-wrap items-center gap-5 p-5">
           <Avatar className="h-16 w-16">
-            <AvatarFallback className="bg-[#D9480F] text-lg font-semibold text-white">
+            <AvatarFallback className="bg-brand-orange text-lg font-semibold text-white">
               {initials(customer.name)}
             </AvatarFallback>
           </Avatar>

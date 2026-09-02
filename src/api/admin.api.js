@@ -63,13 +63,43 @@ export const adminApi = {
   getPartnerPayouts: (id, params = {}) =>
     client.get(`/admin/delivery-partners/${id}/payouts`, { params }),
   adjustPayout: (partnerId, payoutId, body) =>
-    client.patch(`/admin/delivery-partners/${partnerId}/payouts/${payoutId}`, body),
+    client.patch(
+      `/admin/delivery-partners/${partnerId}/payouts/${payoutId}`,
+      body,
+    ),
   markPayoutsPaid: (payoutIds) =>
     client.post("/admin/delivery-partners/payouts/mark-paid", { payoutIds }),
   getPayoutSummary: (period = "weekly") =>
-    client.get("/admin/delivery-partners/payouts/summary", { params: { period } }),
+    client.get("/admin/delivery-partners/payouts/summary", {
+      params: { period },
+    }),
   reassignOrderPartner: (orderId, partnerId, reason) =>
-    client.patch(`/admin/orders/${orderId}/delivery-partner`, { partnerId, reason }),
+    client.patch(`/admin/orders/${orderId}/delivery-partner`, {
+      partnerId,
+      reason,
+    }),
+
+  // ── Delivery Partner KYC ─────────────────────────────────────────────
+  // `decision` is one of approve | reject | request_resubmission; `notes` is
+  // required by the server for the latter two.
+  verifyDeliveryPartner: (id, decision, notes) =>
+    client.patch(`/admin/delivery-partners/${id}/verify`, { decision, notes }),
+  // Partner documents are addressed by `type` (aadhar_card, driving_license,
+  // …), not by _id — their subschema is { _id: false } and re-uploads replace
+  // by type, so type is the stable identifier. Stores differ: those use docId.
+  verifyPartnerDocument: (id, docType, status) =>
+    client.patch(`/admin/delivery-partners/${id}/documents/${docType}/verify`, {
+      status,
+    }),
+
+  // ── Fleet Change Requests ────────────────────────────────────────────
+  listFleetChangeRequests: (params = {}) =>
+    client.get("/admin/delivery-partners/fleet-change-requests", { params }),
+  resolveFleetChangeRequest: (requestId, decision, notes) =>
+    client.patch(
+      `/admin/delivery-partners/fleet-change-requests/${requestId}`,
+      { decision, notes },
+    ),
 
   // ── Support Tickets ──────────────────────────────────────────────────
   listTickets: (params = {}) => client.get("/admin/tickets", { params }),

@@ -14,12 +14,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateDeliveryPartner } from "@/hooks/admin/useDeliveryPartners";
+import {
+  ACCOUNT_TYPES,
+  GENDERS,
+  MAX_UPLOAD_MB,
+  VEHICLE_TYPES,
+} from "@/lib/constants";
 import AdminLayout from "../AdminLayout";
 
-const MAX_FILE_MB = 5;
-
+// Every document is optional server-side (admin/deliveryPartner.controller.js
+// skips any field that wasn't sent), so none is marked required here.
 const FILE_FIELDS = [
-  { key: "aadharCard", label: "Aadhaar Card", required: true },
+  { key: "aadharCard", label: "Aadhaar Card" },
   { key: "drivingLicense", label: "Driving License" },
   { key: "vehicleRc", label: "Vehicle RC" },
   { key: "insuranceDocument", label: "Insurance Document" },
@@ -48,6 +54,7 @@ const EMPTY = {
   accountType: "",
   ifscCode: "",
   branchName: "",
+  upiId: "",
 };
 
 function FieldLabel({ label, required }) {
@@ -140,8 +147,8 @@ export default function PartnerCreate() {
   }
 
   function setFile(key, file) {
-    if (file && file.size > MAX_FILE_MB * 1024 * 1024) {
-      setError(`${key} exceeds ${MAX_FILE_MB}MB`);
+    if (file && file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setError(`${key} exceeds ${MAX_UPLOAD_MB}MB`);
       return;
     }
     setError("");
@@ -216,13 +223,12 @@ export default function PartnerCreate() {
               />
               <DateField
                 label="Date of Birth"
-                required
                 placeholder="Select date of birth"
                 value={form.dateOfBirth}
                 onChange={(e) => setField("dateOfBirth", e.target.value)}
               />
               <div className="space-y-1.5">
-                <FieldLabel label="Gender" required />
+                <FieldLabel label="Gender" />
                 <Select
                   value={form.gender}
                   onValueChange={(v) => setField("gender", v)}
@@ -231,9 +237,11 @@ export default function PartnerCreate() {
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    {GENDERS.map((g) => (
+                      <SelectItem key={g.value} value={g.value}>
+                        {g.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -245,17 +253,15 @@ export default function PartnerCreate() {
                 value={form.emergencyPhone}
                 onChange={(e) => setField("emergencyPhone", e.target.value)}
               />
-              <PhoneField
-                label="Aadhar Number"
-                placeholder="Enter Aadhar number"
+              <TextField
+                label="Aadhaar Number"
+                placeholder="12-digit Aadhaar number"
                 value={form.aadharNumber}
                 onChange={(e) => setField("aadharNumber", e.target.value)}
               />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <PhoneField
-                label="Pan Number"
-                placeholder="Enter PAN number"
+              <TextField
+                label="PAN Number"
+                placeholder="ABCDE1234F"
                 value={form.panNumber}
                 onChange={(e) => setField("panNumber", e.target.value)}
               />
@@ -293,17 +299,16 @@ export default function PartnerCreate() {
                   <SelectValue placeholder="Select vehicle type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2_wheeler">2 Wheeler</SelectItem>
-                  <SelectItem value="ev_2_wheeler">EV 2 Wheeler</SelectItem>
-                  <SelectItem value="non_rto_2_wheeler">
-                    Non-RTO 2 Wheeler
-                  </SelectItem>
+                  {VEHICLE_TYPES.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>
+                      {v.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <TextField
               label="RC Number"
-              required
               placeholder="Enter RC number"
               value={form.vehicleRcNumber}
               onChange={(e) => setField("vehicleRcNumber", e.target.value)}
@@ -322,7 +327,6 @@ export default function PartnerCreate() {
             />
             <DateField
               label="Insurance Valid Till"
-              required
               placeholder="Select date"
               value={form.insuranceValidTill}
               onChange={(e) => setField("insuranceValidTill", e.target.value)}
@@ -343,7 +347,7 @@ export default function PartnerCreate() {
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {FILE_FIELDS.map((f) => (
               <div key={f.key} className="space-y-1.5">
-                <FieldLabel label={f.label} required={f.required} />
+                <FieldLabel label={f.label} />
                 <label className="flex h-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-brand-cream bg-brand-cream/10 p-4 text-center hover:bg-brand-cream/20">
                   {f.key === "profilePhoto" ? (
                     <User className="h-6 w-6 text-muted-foreground" />
@@ -380,27 +384,24 @@ export default function PartnerCreate() {
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <TextField
               label="Bank Name"
-              required
-              placeholder="Select bank"
+              placeholder="Enter bank name"
               value={form.bankName}
               onChange={(e) => setField("bankName", e.target.value)}
             />
             <TextField
               label="Account Holder Name"
-              required
               placeholder="Enter account holder name"
               value={form.accountHolderName}
               onChange={(e) => setField("accountHolderName", e.target.value)}
             />
             <TextField
               label="Account Number"
-              required
               placeholder="Enter account number"
               value={form.accountNumber}
               onChange={(e) => setField("accountNumber", e.target.value)}
             />
             <div className="space-y-1.5">
-              <FieldLabel label="Account Type" required />
+              <FieldLabel label="Account Type" />
               <Select
                 value={form.accountType}
                 onValueChange={(v) => setField("accountType", v)}
@@ -409,21 +410,22 @@ export default function PartnerCreate() {
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="savings">Savings</SelectItem>
-                  <SelectItem value="current">Current</SelectItem>
+                  {ACCOUNT_TYPES.map((a) => (
+                    <SelectItem key={a.value} value={a.value}>
+                      {a.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <TextField
               label="IFSC Code"
-              required
               placeholder="Enter IFSC code"
               value={form.ifscCode}
               onChange={(e) => setField("ifscCode", e.target.value)}
             />
             <TextField
               label="Branch Name"
-              required
               placeholder="Enter branch name"
               value={form.branchName}
               onChange={(e) => setField("branchName", e.target.value)}
@@ -442,7 +444,7 @@ export default function PartnerCreate() {
           <Button
             type="submit"
             disabled={create.isPending}
-            className="bg-[#D9480F] text-white hover:brightness-105"
+            className="bg-brand-orange text-white hover:brightness-105"
           >
             {create.isPending ? "Creating…" : "Create Delivery Partner"}
           </Button>

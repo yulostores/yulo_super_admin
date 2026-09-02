@@ -37,7 +37,7 @@ export default function EditableCard({
               size="sm"
               onClick={onSave}
               disabled={saving}
-              className="bg-[#D9480F] text-white hover:brightness-105"
+              className="bg-brand-orange text-white hover:brightness-105"
             >
               {saving ? "Saving…" : "Save"}
             </Button>
@@ -46,7 +46,7 @@ export default function EditableCard({
           <button
             type="button"
             onClick={onEdit}
-            className="flex items-center gap-1.5 rounded-lg border border-brand-cream px-3 py-1.5 text-xs font-semibold text-[#5a403e] hover:bg-brand-cream/30"
+            className="flex items-center gap-1.5 rounded-lg border border-brand-cream px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-cream/30"
           >
             <Pencil className="h-3.5 w-3.5" /> Edit
           </button>

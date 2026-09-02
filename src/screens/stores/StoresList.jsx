@@ -27,6 +27,9 @@ import PaginationBar from "@/components/admin/PaginationBar";
 import { usePagination } from "@/hooks/admin/usePagination";
 import { useDebouncedValue } from "@/hooks/admin/useDebouncedValue";
 import { useStores } from "@/hooks/admin/useStores";
+import { STORE_STATUS_VARIANT } from "@/lib/constants";
+import { CHART, STORE_STATUS_COLOR, swatchFor } from "@/lib/palette";
+import { storeCode, timeAgo } from "@/lib/format";
 import AdminLayout, { formatDate, formatPrice } from "../AdminLayout";
 
 const STATUS_OPTIONS = [
@@ -37,54 +40,6 @@ const STATUS_OPTIONS = [
   { value: "expired", label: "Expired" },
   { value: "rejected", label: "Rejected" },
 ];
-
-const STATUS_VARIANT = {
-  pending: "warn",
-  active: "ok",
-  suspended: "danger",
-  rejected: "danger",
-  expired: "muted",
-};
-const DONUT_COLORS = {
-  pending: "#D9480F",
-  active: "#2E7D32",
-  suspended: "#B11226",
-  rejected: "#8a7566",
-  expired: "#9CA3AF",
-};
-
-// Decorative per-row swatches — the design shows a distinct pastel icon chip
-// per store; there's no backend field for this, so cycle a fixed palette.
-const STORE_SWATCHES = [
-  { bg: "bg-[#FDECE1]", fg: "text-[#D9480F]" },
-  { bg: "bg-[#FBE4ED]", fg: "text-[#C2185B]" },
-  { bg: "bg-[#F1E7FB]", fg: "text-[#7B1FA2]" },
-  { bg: "bg-[#E8F5EC]", fg: "text-[#2E7D32]" },
-  { bg: "bg-[#E7F0FB]", fg: "text-[#1565C0]" },
-];
-
-function swatchFor(index) {
-  return STORE_SWATCHES[index % STORE_SWATCHES.length];
-}
-
-// Display-only store code — there's no backend "STORE-xxxx" field, so this
-// derives a stable short code from the record id purely for presentation.
-function storeCode(s) {
-  const raw = String(s._id ?? "");
-  return `#STORE-${raw.slice(-4).toUpperCase() || "0000"}`;
-}
-
-function timeAgo(date) {
-  if (!date) return "—";
-  const diffMs = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
 
 function RecentRegistrations() {
   const navigate = useNavigate();
@@ -101,14 +56,13 @@ function RecentRegistrations() {
           return (
             <div
               key={s._id}
-              className="flex cursor-pointer items-center gap-3 border-b border-[#F6EFE9] pb-2.5 last:border-0 last:pb-0"
+              className="flex cursor-pointer items-center gap-3 border-b border-brand-line pb-2.5 last:border-0 last:pb-0"
               onClick={() => navigate(`/stores/${s._id}`)}
             >
               <span
                 className={cn(
                   "grid h-8 w-8 shrink-0 place-items-center rounded-lg",
-                  swatch.bg,
-                  swatch.fg,
+                  swatch,
                 )}
               >
                 <Store className="h-4 w-4" />
@@ -140,15 +94,14 @@ export default function StoresList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const status = searchParams.get("status") ?? "";
   const [search, setSearch] = useState("");
-  const { page, setPage } = usePagination(10);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, limit, setPage, setLimit } = usePagination(10);
   const debouncedSearch = useDebouncedValue(search);
 
   const { data, isLoading, error } = useStores({
     status: status || undefined,
     search: debouncedSearch || undefined,
     page,
-    limit: pageSize,
+    limit,
   });
 
   const counts = data?.statusCounts;
@@ -204,7 +157,9 @@ export default function StoresList() {
               <p className="text-xs font-semibold text-muted-foreground">
                 Active Stores
               </p>
-              <strong className="text-xl font-bold">{counts?.active ?? 0}</strong>
+              <strong className="text-xl font-bold">
+                {counts?.active ?? 0}
+              </strong>
             </div>
           </CardContent>
         </Card>
@@ -217,7 +172,9 @@ export default function StoresList() {
               <p className="text-xs font-semibold text-muted-foreground">
                 Pending Stores
               </p>
-              <strong className="text-xl font-bold">{counts?.pending ?? 0}</strong>
+              <strong className="text-xl font-bold">
+                {counts?.pending ?? 0}
+              </strong>
             </div>
           </CardContent>
         </Card>
@@ -241,7 +198,7 @@ export default function StoresList() {
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Payment Status
+                  Approval Status
                 </label>
                 <Select
                   value={status || "all"}
@@ -262,7 +219,7 @@ export default function StoresList() {
             </div>
             <Button
               onClick={() => navigate("/stores/new")}
-              className="shrink-0 gap-1.5 bg-[#D9480F] text-white hover:brightness-105"
+              className="shrink-0 gap-1.5 bg-brand-orange text-white hover:brightness-105"
             >
               <Plus className="h-4 w-4" /> Add New Store
             </Button>
@@ -310,65 +267,66 @@ export default function StoresList() {
                   {(data?.stores ?? []).map((s, i) => {
                     const swatch = swatchFor(i);
                     return (
-                    <TableRow key={s._id}>
-                      <TableCell className="pl-6">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={cn(
-                              "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
-                              swatch.bg,
-                              swatch.fg,
-                            )}
-                          >
-                            <Store className="h-4 w-4" />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold">{s.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {storeCode(s)}
-                            </p>
+                      <TableRow key={s._id}>
+                        <TableCell className="pl-6">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={cn(
+                                "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
+                                swatch,
+                              )}
+                            >
+                              <Store className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold">{s.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {storeCode(s._id)}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {s.ownerId?.name ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        <div>{s.ownerId?.email}</div>
-                        <div>{s.ownerId?.phone}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="muted" className="capitalize">
-                          {s.plan}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={STATUS_VARIANT[s.approvalStatus] ?? "muted"}
-                          className="capitalize"
-                        >
-                          {s.approvalStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {s.address?.city ?? "—"}
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        {formatPrice(s.revenue)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(s.submittedAt ?? s.createdAt)}
-                      </TableCell>
-                      <TableCell className="pr-6 text-right">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/stores/${s._id}`)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-orange hover:bg-brand-orange/10"
-                        >
-                          <Eye className="h-3.5 w-3.5" /> View Profile
-                        </button>
-                      </TableCell>
-                    </TableRow>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {s.ownerId?.name ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          <div>{s.ownerId?.email}</div>
+                          <div>{s.ownerId?.phone}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="muted" className="capitalize">
+                            {s.plan}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              STORE_STATUS_VARIANT[s.approvalStatus] ?? "muted"
+                            }
+                            className="capitalize"
+                          >
+                            {s.approvalStatus}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {s.address?.city ?? "—"}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {formatPrice(s.revenue)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(s.submittedAt ?? s.createdAt)}
+                        </TableCell>
+                        <TableCell className="pr-6 text-right">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/stores/${s._id}`)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-orange hover:bg-brand-orange/10"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View Profile
+                          </button>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
                   {!isLoading && data?.stores?.length === 0 ? (
@@ -401,11 +359,8 @@ export default function StoresList() {
             total={data?.total}
             onPageChange={setPage}
             itemLabel="stores"
-            pageSize={pageSize}
-            onPageSizeChange={(next) => {
-              setPageSize(next);
-              setPage(1);
-            }}
+            pageSize={limit}
+            onPageSizeChange={setLimit}
           />
         </div>
 
@@ -431,7 +386,7 @@ export default function StoresList() {
                         {donutData.map((d) => (
                           <Cell
                             key={d.name}
-                            fill={DONUT_COLORS[d.name] ?? "#9CA3AF"}
+                            fill={STORE_STATUS_COLOR[d.name] ?? CHART.fallback}
                           />
                         ))}
                       </Pie>
@@ -461,7 +416,7 @@ export default function StoresList() {
                     <span className="flex items-center gap-2 capitalize">
                       <span
                         className="h-2 w-2 rounded-full"
-                        style={{ background: DONUT_COLORS[d.name] }}
+                        style={{ background: STORE_STATUS_COLOR[d.name] }}
                       />
                       {d.name}
                     </span>

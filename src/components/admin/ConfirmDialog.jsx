@@ -60,7 +60,7 @@ export default function ConfirmDialog({
             onClick={() => onConfirm(requireReason ? reason.trim() : undefined)}
             className={
               confirmVariant === "default"
-                ? "bg-[#D9480F] text-white hover:brightness-105"
+                ? "bg-brand-orange text-white hover:brightness-105"
                 : undefined
             }
           >

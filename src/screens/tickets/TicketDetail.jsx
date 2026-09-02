@@ -18,15 +18,8 @@ import {
   useTicket,
   useUpdateTicket,
 } from "@/hooks/admin/useTickets";
+import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
 import AdminLayout, { formatDate } from "../AdminLayout";
-
-const STATUS_VARIANT = {
-  open: "danger",
-  in_progress: "info",
-  resolved: "ok",
-  closed: "muted",
-};
-const PRIORITY_VARIANT = { low: "muted", medium: "warn", high: "danger" };
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -79,7 +72,7 @@ export default function TicketDetail() {
                   key={i}
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                     m.senderType === "admin"
-                      ? "ml-auto bg-[#D9480F] text-white"
+                      ? "ml-auto bg-brand-orange text-white"
                       : "bg-brand-cream/30"
                   }`}
                 >
@@ -114,7 +107,7 @@ export default function TicketDetail() {
                       onSuccess: () => setReply(""),
                     })
                   }
-                  className="bg-[#D9480F] text-white hover:brightness-105"
+                  className="bg-brand-orange text-white hover:brightness-105"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -139,10 +132,11 @@ export default function TicketDetail() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
+                    {TICKET_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s} className="capitalize">
+                        {s.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -156,9 +150,11 @@ export default function TicketDetail() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
+                    {TICKET_PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p} className="capitalize">
+                        {p}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -166,24 +162,6 @@ export default function TicketDetail() {
                 <span className="text-muted-foreground">Category</span>
                 <Badge variant="muted" className="capitalize">
                   {ticket.category}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Current Status</span>
-                <Badge
-                  variant={STATUS_VARIANT[ticket.status] ?? "muted"}
-                  className="capitalize"
-                >
-                  {ticket.status?.replace(/_/g, " ")}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Current Priority</span>
-                <Badge
-                  variant={PRIORITY_VARIANT[ticket.priority] ?? "muted"}
-                  className="capitalize"
-                >
-                  {ticket.priority}
                 </Badge>
               </div>
               {ticket.resolvedAt ? (

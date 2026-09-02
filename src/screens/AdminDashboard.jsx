@@ -16,8 +16,8 @@ import {
   ArrowRight,
   Bike,
   ClipboardList,
+  Headset,
   IndianRupee,
-  Megaphone,
   Moon,
   Radio,
   Store,
@@ -47,11 +47,14 @@ import {
   useHourlyActivity,
 } from "@/hooks/admin/useDashboard";
 import { useStores } from "@/hooks/admin/useStores";
-import AdminLayout, {
-  formatDate,
-  formatNumber,
-  formatPrice,
-} from "./AdminLayout";
+import {
+  AVATAR_COLORS,
+  CHART,
+  RANK_BADGE_CLASS,
+  swatchFor,
+} from "@/lib/palette";
+import { formatHour, initials } from "@/lib/format";
+import AdminLayout, { formatNumber, formatPrice } from "./AdminLayout";
 
 const RANGES = [
   { value: "day", label: "Day" },
@@ -69,34 +72,6 @@ function pointLabel(date, range) {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 }
 
-function formatHour(hour) {
-  if (hour === undefined || hour === null) return "—";
-  const period = hour >= 12 ? "PM" : "AM";
-  const h12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h12}:00 ${period}`;
-}
-
-const STORE_ICON_COLORS = [
-  "bg-[#FCE9E4] text-brand-orange",
-  "bg-[#E7F0FB] text-[#1565C0]",
-  "bg-brand-green/10 text-brand-green",
-  "bg-brand-saffron/20 text-brand-saffron",
-];
-
-const AVATAR_COLORS = [
-  "bg-brand-orange",
-  "bg-[#1565C0]",
-  "bg-brand-green",
-  "bg-[#7C3AED]",
-  "bg-brand-saffron",
-];
-
-const RANK_BADGE_CLASS = {
-  1: "bg-[#F2A65A] text-white",
-  2: "bg-[#B0B0B8] text-white",
-  3: "bg-[#C58940] text-white",
-};
-
 function RankBadge({ rank }) {
   return (
     <span
@@ -107,15 +82,6 @@ function RankBadge({ rank }) {
       {rank}
     </span>
   );
-}
-
-function initials(name) {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  return parts
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
 }
 
 function documentsStatus(docs) {
@@ -133,14 +99,13 @@ function QuickAction({
   onClick,
   highlighted,
 }) {
-  const Wrapper = onClick ? "button" : "div";
   return (
-    <Wrapper
-      type={onClick ? "button" : undefined}
+    <button
+      type="button"
       onClick={onClick}
       className={`flex flex-1 items-center gap-3 rounded-2xl p-4 text-left shadow-sm transition ${
         highlighted
-          ? "bg-gradient-to-r from-[#D9480F] to-[#F2A65A] text-white"
+          ? "bg-gradient-to-r from-brand-orange to-brand-saffron text-white"
           : "border border-brand-cream/60 bg-white hover:border-brand-orange/40"
       }`}
     >
@@ -164,7 +129,7 @@ function QuickAction({
       >
         <ArrowRight className="h-4 w-4" />
       </span>
-    </Wrapper>
+    </button>
   );
 }
 
@@ -272,7 +237,7 @@ export default function AdminDashboard() {
       <section className="flex flex-col gap-4 sm:flex-row">
         <QuickAction
           icon={Store}
-          iconClass="bg-[#FCE9E4] text-brand-orange"
+          iconClass="bg-status-danger-bg text-brand-orange"
           arrowClass="bg-brand-orange text-white"
           title="Add Store"
           subtitle="Onboard new stores to grow your platform"
@@ -280,18 +245,19 @@ export default function AdminDashboard() {
         />
         <QuickAction
           icon={Bike}
-          iconClass="bg-[#1E88E51F] text-[#1565C0]"
-          arrowClass="bg-[#1E88E5] text-white"
+          iconClass="bg-brand-blue2/10 text-brand-blue"
+          arrowClass="bg-brand-blue2 text-white"
           title="Add Delivery Partner"
           subtitle="Register delivery partners to expand delivery network"
           onClick={() => navigate("/delivery-partners/new")}
         />
         <QuickAction
-          icon={Megaphone}
+          icon={Headset}
           iconClass="bg-white/20 text-white"
           arrowClass="bg-white/25 text-white"
-          title="Run In-App Advertisements"
-          subtitle="Promote offers and boost visibility across the platform"
+          title="Support Desk"
+          subtitle="Work through open tickets from stores, customers and partners"
+          onClick={() => navigate("/tickets")}
           highlighted
         />
       </section>
@@ -303,7 +269,7 @@ export default function AdminDashboard() {
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
             icon={Store}
-            iconClass="bg-[#F0592A] text-white"
+            iconClass="bg-brand-orange2 text-white"
             label="Total Stores"
             value={formatNumber(
               (overview?.stores?.pending ?? 0) +
@@ -316,12 +282,12 @@ export default function AdminDashboard() {
               {
                 label: "Active",
                 value: formatNumber(overview?.stores?.active),
-                dot: "bg-[#2E7D32]",
+                dot: "bg-brand-green",
               },
               {
                 label: "Pending",
                 value: formatNumber(overview?.stores?.pending),
-                dot: "bg-[#D9480F]",
+                dot: "bg-brand-orange",
               },
               {
                 label: "Inactive",
@@ -330,7 +296,7 @@ export default function AdminDashboard() {
                     (overview?.stores?.rejected ?? 0) +
                     (overview?.stores?.expired ?? 0),
                 ),
-                dot: "bg-[#9CA3AF]",
+                dot: "bg-brand-neutral",
               },
             ]}
             viewLabel="View all stores"
@@ -338,7 +304,7 @@ export default function AdminDashboard() {
           />
           <StatCard
             icon={Ticket}
-            iconClass="bg-[#F2A459] text-white"
+            iconClass="bg-brand-saffron text-white"
             label="Tickets Raised"
             value={formatNumber(
               (overview?.tickets?.open ?? 0) +
@@ -350,12 +316,12 @@ export default function AdminDashboard() {
               {
                 label: "Open",
                 value: formatNumber(overview?.tickets?.open),
-                dot: "bg-[#B11226]",
+                dot: "bg-brand-maroon",
               },
               {
                 label: "Resolved",
                 value: formatNumber(overview?.tickets?.resolved),
-                dot: "bg-[#2E7D32]",
+                dot: "bg-brand-green",
               },
             ]}
             viewLabel="View tickets"
@@ -363,7 +329,7 @@ export default function AdminDashboard() {
           />
           <StatCard
             icon={Users}
-            iconClass="bg-[#1E88E5] text-[#ffffff]"
+            iconClass="bg-brand-blue2 text-white"
             label="Total Customers"
             value={formatNumber(overview?.customers)}
             viewLabel="View customer report"
@@ -371,19 +337,19 @@ export default function AdminDashboard() {
           />
           <StatCard
             icon={IndianRupee}
-            iconClass="bg-[#0E7C7B] text-white"
+            iconClass="bg-brand-teal text-white"
             label="Total Revenue"
             value={formatPrice(overview?.revenue?.total)}
             breakdown={[
               {
                 label: "Orders",
                 value: formatNumber(overview?.revenue?.orders),
-                dot: "bg-[#1565C0]",
+                dot: "bg-brand-blue",
               },
               {
                 label: "Avg Order",
                 value: formatPrice(avgOrderValue),
-                dot: "bg-[#D9480F]",
+                dot: "bg-brand-orange",
               },
             ]}
             viewLabel="View revenue report"
@@ -404,7 +370,7 @@ export default function AdminDashboard() {
                 onClick={() => setRange(r.value)}
                 className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
                   range === r.value
-                    ? "bg-[#D9480F] text-white"
+                    ? "bg-brand-orange text-white"
                     : "text-muted-foreground hover:bg-brand-cream/40"
                 }`}
               >
@@ -427,7 +393,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Orders</p>
-                  <p className="text-lg font-bold text-[#1565C0]">
+                  <p className="text-lg font-bold text-brand-blue">
                     {formatNumber(rangeTotals.orders)}
                   </p>
                 </div>
@@ -442,42 +408,42 @@ export default function AdminDashboard() {
               </div>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={revenueData?.points ?? []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F6EFE9" />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={(d) => pointLabel(d, range)}
-                    tick={{ fontSize: 11, fill: "#8a7566" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#8a7566" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    formatter={(value, name) => [
-                      name === "revenue" ? formatPrice(value) : value,
-                      name === "revenue" ? "Revenue" : "Orders",
-                    ]}
-                    labelFormatter={(d) => pointLabel(d, range)}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#D9480F"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="orders"
-                    stroke="#1565C0"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
+                  <LineChart data={revenueData?.points ?? []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(d) => pointLabel(d, range)}
+                      tick={{ fontSize: 11, fill: CHART.axis }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: CHART.axis }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => [
+                        name === "revenue" ? formatPrice(value) : value,
+                        name === "revenue" ? "Revenue" : "Orders",
+                      ]}
+                      labelFormatter={(d) => pointLabel(d, range)}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke={CHART.revenue}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="orders"
+                      stroke={CHART.orders}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </>
@@ -497,7 +463,7 @@ export default function AdminDashboard() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#E7F0FB] text-[#1565C0]">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-status-info-bg text-brand-blue">
                   <Users className="h-3.5 w-3.5" />
                 </span>
                 Open Table Sessions
@@ -506,7 +472,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#FFF3E0] text-brand-orange">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-status-warn-bg text-brand-orange">
                   <ClipboardList className="h-3.5 w-3.5" />
                 </span>
                 Orders In Progress
@@ -558,17 +524,17 @@ export default function AdminDashboard() {
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={hourlyActivity?.hours ?? []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F6EFE9" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
                   <XAxis
                     dataKey="hour"
                     tickFormatter={(h) => `${h}:00`}
-                    tick={{ fontSize: 10, fill: "#8a7566" }}
+                    tick={{ fontSize: 10, fill: CHART.axis }}
                     axisLine={false}
                     tickLine={false}
                     interval={3}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#8a7566" }}
+                    tick={{ fontSize: 11, fill: CHART.axis }}
                     axisLine={false}
                     tickLine={false}
                   />
@@ -579,10 +545,10 @@ export default function AdminDashboard() {
                         key={h.hour}
                         fill={
                           h.hour === hourlyActivity?.peakHour
-                            ? "#D9480F"
+                            ? CHART.peak
                             : h.hour === hourlyActivity?.leastActiveHour
-                              ? "#B11226"
-                              : "#2E7D32"
+                              ? CHART.low
+                              : CHART.neutral
                         }
                       />
                     ))}
@@ -620,7 +586,7 @@ export default function AdminDashboard() {
                     <TableCell className="font-semibold">
                       <span className="flex items-center gap-2">
                         <span
-                          className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${STORE_ICON_COLORS[i % STORE_ICON_COLORS.length]}`}
+                          className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${swatchFor(i)}`}
                         >
                           <Store className="h-3.5 w-3.5" />
                         </span>
@@ -669,19 +635,17 @@ export default function AdminDashboard() {
               return (
                 <div
                   key={s._id}
-                  className="flex cursor-pointer items-center justify-between gap-3 border-b border-[#F6EFE9] pb-3 last:border-0 last:pb-0"
+                  className="flex cursor-pointer items-center justify-between gap-3 border-b border-brand-line pb-3 last:border-0 last:pb-0"
                   onClick={() => navigate(`/stores/${s._id}`)}
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <span
-                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${STORE_ICON_COLORS[i % STORE_ICON_COLORS.length]}`}
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${swatchFor(i)}`}
                     >
                       <Store className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">
-                        {s.name}
-                      </p>
+                      <p className="truncate text-sm font-semibold">{s.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {s.ownerId?.name ?? "—"}
                       </p>
@@ -716,7 +680,7 @@ export default function AdminDashboard() {
               return (
                 <div
                   key={p._id}
-                  className="flex items-center justify-between border-b border-[#F6EFE9] pb-3 last:border-0 last:pb-0"
+                  className="flex items-center justify-between border-b border-brand-line pb-3 last:border-0 last:pb-0"
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className={AVATAR_COLORS[i % AVATAR_COLORS.length]}>
@@ -738,7 +702,7 @@ export default function AdminDashboard() {
                     }`}
                   >
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${online ? "bg-brand-green" : "bg-[#9CA3AF]"}`}
+                      className={`h-1.5 w-1.5 rounded-full ${online ? "bg-brand-green" : "bg-brand-neutral"}`}
                     />
                     {online ? "Online" : "Offline"}
                   </span>

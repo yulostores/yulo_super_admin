@@ -40,35 +40,21 @@ import {
   useMarkPayoutsPaid,
   usePayoutSummary,
 } from "@/hooks/admin/useDeliveryPartners";
-import AdminLayout, { formatDate, formatNumber, formatPrice } from "../AdminLayout";
-
-const PAYOUT_STATUS_VARIANT = {
-  pending: "warn",
-  processing: "info",
-  paid: "ok",
-};
-
-function initials(name = "") {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-// No sequential partner-code field exists on the DeliveryPartner model — derive a
-// stable, display-only code from the Mongo _id so the "Partner ID" column has
-// something to show (matches the DPxxxx look of the reference design).
-function partnerCode(id = "") {
-  return `DP${id.slice(-4).toUpperCase()}`;
-}
+import {
+  PARTNER_STATUS_VARIANT,
+  PARTNER_STATUSES,
+  PAYOUT_STATUS_VARIANT,
+} from "@/lib/constants";
+import { initials, partnerCode } from "@/lib/format";
+import AdminLayout, {
+  formatDate,
+  formatNumber,
+  formatPrice,
+} from "../AdminLayout";
 
 // The payout summary API only returns the currently computed period's
-// periodStart/periodEnd (no arbitrary custom-range filtering is wired up), so the
-// date chip is a display-only readout of that period rather than an interactive
-// range picker.
+// periodStart/periodEnd, so the date chip is a read-only readout of that period
+// rather than an interactive range picker.
 function formatPayoutRange(start, end) {
   if (!start || !end) return "Current period";
   const from = new Date(start).toLocaleDateString("en-IN", {
@@ -86,13 +72,14 @@ function formatPayoutRange(start, end) {
 export default function PartnersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("all");
+  const [status, setStatus] = useState("all");
   const [period, setPeriod] = useState("weekly");
-  const { page, limit, setPage } = usePagination(10);
+  const { page, limit, setPage, setLimit } = usePagination(10);
   const debouncedSearch = useDebouncedValue(search);
 
   const { data, isLoading, error } = useDeliveryPartners({
     search: debouncedSearch || undefined,
+    status: status === "all" ? undefined : status,
     page,
     limit,
   });
@@ -105,16 +92,7 @@ export default function PartnersList() {
     return map;
   }, [payoutSummary]);
 
-  // Payment Status filters by payout status (pending/processing/paid), which the
-  // partner-list endpoint has no concept of — it's applied client-side over the
-  // already-fetched page using the same payout summary data the table columns use.
-  const visiblePartners = useMemo(() => {
-    const partners = data?.partners ?? [];
-    if (paymentStatus === "all") return partners;
-    return partners.filter(
-      (p) => payoutByPartnerId.get(p._id)?.status === paymentStatus,
-    );
-  }, [data, paymentStatus, payoutByPartnerId]);
+  const partners = data?.partners ?? [];
 
   const periodPayout = payoutSummary?.payouts?.[0];
 
@@ -137,7 +115,7 @@ export default function PartnersList() {
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1 text-xs font-semibold capitalize transition ${
                 period === p
-                  ? "bg-[#D9480F] text-white"
+                  ? "bg-brand-orange text-white"
                   : "text-muted-foreground hover:bg-brand-cream/40"
               }`}
             >
@@ -151,7 +129,10 @@ export default function PartnersList() {
         >
           <Calendar className="h-4 w-4" />
           <span className="font-medium text-foreground">
-            {formatPayoutRange(periodPayout?.periodStart, periodPayout?.periodEnd)}
+            {formatPayoutRange(
+              periodPayout?.periodStart,
+              periodPayout?.periodEnd,
+            )}
           </span>
           <ChevronDown className="h-4 w-4 opacity-50" />
         </div>
@@ -160,7 +141,7 @@ export default function PartnersList() {
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#F0592A] text-white">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-orange2 text-white">
               <CreditCard className="h-5 w-5" />
             </span>
             <div>
@@ -175,7 +156,7 @@ export default function PartnersList() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#43A047] text-[#ffffff]">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-leaf text-white">
               <Users className="h-5 w-5" />
             </span>
             <div>
@@ -190,7 +171,7 @@ export default function PartnersList() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#3B73D4] text-[#ffffff]">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-indigo text-white">
               <ClipboardCheck className="h-5 w-5" />
             </span>
             <div>
@@ -205,7 +186,7 @@ export default function PartnersList() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#F59E0B] text-white">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-amber text-white">
               <Clock className="h-5 w-5" />
             </span>
             <div>
@@ -236,12 +217,12 @@ export default function PartnersList() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Payment Status
+              Duty Status
             </label>
             <Select
-              value={paymentStatus}
+              value={status}
               onValueChange={(v) => {
-                setPaymentStatus(v);
+                setStatus(v);
                 setPage(1);
               }}
             >
@@ -250,9 +231,11 @@ export default function PartnersList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
+                {PARTNER_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -260,14 +243,14 @@ export default function PartnersList() {
         <div className="flex flex-wrap items-center gap-3">
           <Button
             onClick={() => navigate("/delivery-partners/new")}
-            className="shrink-0 gap-1.5 bg-[#D9480F] text-white hover:brightness-105"
+            className="shrink-0 gap-1.5 bg-brand-orange text-white hover:brightness-105"
           >
             <Plus className="h-4 w-4" /> Add New Delivery Partner
           </Button>
           <Button
             onClick={handleClearPendingPayments}
             disabled={markPaid.isPending || !payoutSummary?.pendingPayments}
-            className="gap-1.5 bg-[#D9480F] text-white hover:brightness-105"
+            className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
           >
             {markPaid.isPending ? "Clearing…" : "Clear Pending Payments"}
             <ArrowRight className="h-4 w-4" />
@@ -297,21 +280,29 @@ export default function PartnersList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visiblePartners.map((p) => {
+              {partners.map((p) => {
                 const payout = payoutByPartnerId.get(p._id);
                 return (
                   <TableRow key={p._id}>
                     <TableCell className="pl-6">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-[#D9480F] text-[11px] font-semibold text-white">
+                          <AvatarFallback className="bg-brand-orange text-[11px] font-semibold text-white">
                             {initials(p.fullName)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="font-semibold">{p.fullName}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="flex items-center gap-2 text-xs text-muted-foreground">
                             {p.phone}
+                            <Badge
+                              variant={
+                                PARTNER_STATUS_VARIANT[p.status] ?? "muted"
+                              }
+                              className="capitalize"
+                            >
+                              {p.status}
+                            </Badge>
                           </p>
                         </div>
                       </div>
@@ -320,7 +311,9 @@ export default function PartnersList() {
                       {partnerCode(p._id)}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {formatNumber(payout?.deliveriesCount ?? p.totalDeliveries)}
+                      {formatNumber(
+                        payout?.deliveriesCount ?? p.totalDeliveries,
+                      )}
                     </TableCell>
                     <TableCell>
                       {payout ? formatPrice(payout.grossEarnings) : "—"}
@@ -337,7 +330,9 @@ export default function PartnersList() {
                     <TableCell>
                       {payout ? (
                         <Badge
-                          variant={PAYOUT_STATUS_VARIANT[payout.status] ?? "muted"}
+                          variant={
+                            PAYOUT_STATUS_VARIANT[payout.status] ?? "muted"
+                          }
                           className="capitalize"
                         >
                           {payout.status}
@@ -361,7 +356,7 @@ export default function PartnersList() {
                   </TableRow>
                 );
               })}
-              {!isLoading && visiblePartners.length === 0 ? (
+              {!isLoading && partners.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={10}
@@ -391,6 +386,8 @@ export default function PartnersList() {
         total={data?.total}
         onPageChange={setPage}
         itemLabel="partners"
+        pageSize={limit}
+        onPageSizeChange={setLimit}
       />
     </AdminLayout>
   );
