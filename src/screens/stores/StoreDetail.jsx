@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, ChevronDown, FileText, XCircle } from "lucide-react";
 
@@ -28,7 +28,11 @@ import {
   STORE_STATUS_VARIANT,
 } from "@/lib/constants";
 import ReadOnlyField from "@/components/admin/ReadOnlyField";
-import { fileNameOf, hhmm, toHHMM } from "@/lib/format";
+import DocumentViewer, {
+  documentFileName,
+} from "@/components/admin/DocumentViewer";
+import { adminApi } from "@/api/admin.api";
+import { hhmm, toHHMM } from "@/lib/format";
 import AdminLayout, { formatDate } from "../AdminLayout";
 
 function ViewBox({ label, value, multiline }) {
@@ -90,6 +94,10 @@ export default function StoreDetail() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [note, setNote] = useState("");
+  // Which document the in-portal viewer is showing, held as { type, label } rather than
+  // the document itself: verifying from inside the viewer refetches the store, and a
+  // snapshotted copy would keep rendering the old status behind the same file.
+  const [viewingDoc, setViewingDoc] = useState(null);
 
   const [editingHours, setEditingHours] = useState(false);
   const [hoursForm, setHoursForm] = useState([]);
@@ -101,6 +109,19 @@ export default function StoreDetail() {
   const [licensesForm, setLicensesForm] = useState({});
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({});
+
+  // Read live off the store each render, so a verify/reject made from inside the viewer
+  // repaints it rather than leaving a stale snapshot on screen. Declared up here with the
+  // other hooks — the render body below returns early while the store is loading.
+  const viewedDoc = viewingDoc
+    ? (store?.documents ?? []).find((d) => d.type === viewingDoc.type)
+    : null;
+  const viewedDocId = viewedDoc?._id;
+  // Stable identity so the viewer fetches the file once per document, not per render.
+  const fetchViewedFile = useCallback(
+    () => adminApi.getStoreDocumentFile(id, viewedDocId),
+    [id, viewedDocId],
+  );
 
   useEffect(() => {
     if (!store) return;
@@ -908,20 +929,21 @@ export default function StoreDetail() {
                             {label}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {fileNameOf(doc?.url) ?? "Not uploaded"}
+                            {doc?.url
+                              ? documentFileName(doc)
+                              : "Not uploaded"}
                           </p>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         {doc?.url ? (
-                          <a
-                            href={doc.url}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => setViewingDoc({ type, label })}
                             className="rounded-lg border border-brand-cream px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-cream/30"
                           >
                             View
-                          </a>
+                          </button>
                         ) : null}
                         {doc?.status === "pending" ? (
                           <>
@@ -1030,6 +1052,24 @@ export default function StoreDetail() {
         onConfirm={(reason) =>
           reject.mutate(reason, { onSuccess: () => setRejectOpen(false) })
         }
+      />
+
+      <DocumentViewer
+        open={!!viewingDoc}
+        title={viewingDoc?.label}
+        doc={viewedDoc}
+        fetchFile={fetchViewedFile}
+        uploadedAtLabel={
+          viewedDoc?.uploadedAt ? formatDate(viewedDoc.uploadedAt) : null
+        }
+        actionsDisabled={verifyDoc.isPending}
+        onVerify={() =>
+          verifyDoc.mutate({ docId: viewedDoc?._id, status: "verified" })
+        }
+        onReject={() =>
+          verifyDoc.mutate({ docId: viewedDoc?._id, status: "rejected" })
+        }
+        onClose={() => setViewingDoc(null)}
       />
 
       <ConfirmDialog

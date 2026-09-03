@@ -47,9 +47,27 @@ function normalizeError(err) {
   return apiError;
 }
 
+// A failed request made with `responseType: "blob"` (document previews) hands back an
+// error body that is a Blob, not the parsed envelope — so `data.code` and `data.message`
+// are both undefined. That silently costs more than a vague message: the TOKEN_EXPIRED
+// refresh below keys off `code`, so without this a document fetch on an expired token
+// would fail outright instead of healing like every other call. Read the blob back into
+// the envelope the rest of this interceptor expects.
+async function unpackBlobError(err) {
+  const data = err.response?.data;
+  if (typeof Blob === "undefined" || !(data instanceof Blob)) return;
+  if (data.type && !data.type.includes("json")) return;
+  try {
+    err.response.data = JSON.parse(await data.text());
+  } catch {
+    // Not JSON after all — leave it alone.
+  }
+}
+
 client.interceptors.response.use(
   (res) => res,
   async (err) => {
+    await unpackBlobError(err);
     const original = err.config;
     const code = err.response?.data?.code;
 
@@ -69,8 +87,9 @@ client.interceptors.response.use(
       try {
         // Raw axios, not `client` — going through the instance would re-enter
         // this interceptor and recurse if the refresh itself 401s.
+        // ?portal=admin picks this portal's refresh cookie — see auth.api.js.
         const { data } = await axios.post(
-          `${API_BASE}/api/auth/refresh`,
+          `${API_BASE}/api/auth/refresh?portal=admin`,
           {},
           { withCredentials: true },
         );
