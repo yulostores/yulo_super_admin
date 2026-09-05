@@ -7,6 +7,7 @@ import {
   Headset,
   LayoutDashboard,
   LogOut,
+  ReceiptText,
   Store,
   TrendingUp,
   Truck,
@@ -31,6 +32,8 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/stores", label: "Store Management", icon: Store },
   { to: "/finance", label: "Financial Analytics", icon: TrendingUp },
+  // The receipts behind the revenue figures on the finance screens.
+  { to: "/bills", label: "Bills", icon: ReceiptText },
   { to: "/customers", label: "Customer Report", icon: Users },
   { to: "/delivery-partners", label: "Delivery Partners", icon: Truck },
   { to: "/tickets", label: "Support & Tickets", icon: Headset },

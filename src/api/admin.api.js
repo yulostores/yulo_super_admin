@@ -48,6 +48,12 @@ export const adminApi = {
       .then((r) => r.data),
   removeStore: (id) => client.delete(`/admin/stores/${id}`),
 
+  // ── Bills ────────────────────────────────────────────────────────────
+  // Platform-wide receipts, filterable by store, status, type, table and date.
+  // params: { restaurantId, status, type, tableNumber, from, to, q, page, limit }
+  listBills: (params = {}) => client.get("/admin/bills", { params }),
+  getBill: (billId) => client.get(`/admin/bills/${billId}`),
+
   // ── Customers ────────────────────────────────────────────────────────
   listCustomers: (params = {}) => client.get("/admin/customers", { params }),
   getCustomer: (id) => client.get(`/admin/customers/${id}`),

@@ -17,8 +17,8 @@
 // The verify / reject controls live in here too, so the decision is made against the
 // document actually on screen instead of against a filename in a list.
 
-import { useEffect, useState } from "react";
-import { CheckCircle2, Download, Loader2, X, XCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Download, Loader2, RefreshCw, X, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { fileNameOf } from "@/lib/format";
@@ -43,13 +43,40 @@ const STATUS_COPY = {
   pending: { label: "Awaiting review", className: "bg-status-warn-bg text-status-warn" },
 };
 
+// What the reviewer is shown when the preview fails.
+//
+// Never the raw error. A failure here surfaces as anything from "Request failed with
+// status code 504" to a JSON parse error on a gateway's HTML error page — none of which
+// is actionable, and all of which read as the portal being broken rather than as one file
+// being temporarily unreachable. The technical detail goes to the console instead, and the
+// server logs its own half under the same request id.
+//
+// The server's message is only trusted when the error carries an API `code`, which is what
+// says it came from our own error envelope rather than from axios or a proxy.
+const GENERIC_PREVIEW_ERROR =
+  "Sorry, this document could not be previewed right now. Please try again in a moment.";
+
+const PREVIEW_ERRORS = {
+  DOCUMENT_MISSING: "This document is no longer in storage — ask the owner to upload it again.",
+  NOT_FOUND: "This document is no longer in storage — ask the owner to upload it again.",
+  UNAUTHORIZED: "Your session has expired. Please sign in again.",
+  TOKEN_EXPIRED: "Your session has expired. Please sign in again.",
+};
+
+function previewErrorMessage(err) {
+  if (PREVIEW_ERRORS[err?.code]) return PREVIEW_ERRORS[err.code];
+  if (err?.code && err?.message) return err.message;
+  return GENERIC_PREVIEW_ERROR;
+}
+
 /**
  * Loads the document's bytes and hands back an object URL for them.
  *
  * @param {(() => Promise<Blob>) | null} fetchFile fetcher for the open document, or null
  *                                                when the viewer is closed
+ * @param {number} attempt bumped to retry the same document
  */
-function useDocumentObjectUrl(fetchFile) {
+function useDocumentObjectUrl(fetchFile, attempt) {
   const [state, setState] = useState({ url: null, loading: false, error: null });
 
   useEffect(() => {
@@ -69,11 +96,14 @@ function useDocumentObjectUrl(fetchFile) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setState({
-          url: null,
-          loading: false,
-          error: err?.message ?? "This document could not be loaded.",
+        // Kept out of the UI but not thrown away: this is what makes a support report
+        // ("it says try again") traceable back to a status code.
+        console.error("[DocumentViewer] preview failed", {
+          status: err?.status,
+          code: err?.code,
+          message: err?.message,
         });
+        setState({ url: null, loading: false, error: previewErrorMessage(err) });
       });
 
     // Revoked on close and on every swap — a reviewer clicking through six documents
@@ -82,7 +112,7 @@ function useDocumentObjectUrl(fetchFile) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [fetchFile]);
+  }, [fetchFile, attempt]);
 
   return state;
 }
@@ -109,8 +139,14 @@ export default function DocumentViewer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // A failed preview is usually transient (a slow storage fetch, a dropped connection), so
+  // the reviewer gets a retry in place rather than having to close and reopen the viewer.
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  useEffect(() => setAttempt(0), [doc?._id]);
+
   const active = open && !!doc?.url;
-  const { url, loading, error } = useDocumentObjectUrl(active ? fetchFile : null);
+  const { url, loading, error } = useDocumentObjectUrl(active ? fetchFile : null, attempt);
 
   if (!active) return null;
 
@@ -177,8 +213,11 @@ export default function DocumentViewer({
               <p className="text-sm">Loading document…</p>
             </div>
           ) : error ? (
-            <div className="flex h-full min-h-[60vh] items-center justify-center px-6">
+            <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 px-6">
               <p className="max-w-sm text-center text-sm text-brand-maroon">{error}</p>
+              <Button type="button" size="sm" variant="outline" onClick={retry} className="gap-1.5">
+                <RefreshCw className="h-3.5 w-3.5" /> Try again
+              </Button>
             </div>
           ) : isPdf ? (
             <iframe

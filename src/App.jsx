@@ -4,6 +4,8 @@ import AdminRoute from "./components/AdminRoute";
 import Login from "./screens/Login";
 import AdminDashboard from "./screens/AdminDashboard";
 import FinancialAnalytics from "./screens/finance/FinancialAnalytics";
+import BillsList from "./screens/bills/BillsList";
+import BillDetail from "./screens/bills/BillDetail";
 import StoresList from "./screens/stores/StoresList";
 import StoreCreate from "./screens/stores/StoreCreate";
 import StoreDetail from "./screens/stores/StoreDetail";
@@ -59,6 +61,23 @@ export default function App() {
         element={
           <AdminRoute>
             <FinancialAnalytics />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/bills"
+        element={
+          <AdminRoute>
+            <BillsList />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/bills/:id"
+        element={
+          <AdminRoute>
+            <BillDetail />
           </AdminRoute>
         }
       />

@@ -21,18 +21,20 @@ import {
   useUpdateStore,
   useVerifyDocument,
 } from "@/hooks/admin/useStores";
+import { useBills } from "@/hooks/admin/useBills";
 import {
   DAYS,
   STORE_DOCUMENT_TYPES,
   STORE_STATUS_LABEL,
   STORE_STATUS_VARIANT,
 } from "@/lib/constants";
+import { BILL_STATUS_VARIANT, formatMoney, humanize } from "@/lib/bill";
 import ReadOnlyField from "@/components/admin/ReadOnlyField";
 import DocumentViewer, {
   documentFileName,
 } from "@/components/admin/DocumentViewer";
 import { adminApi } from "@/api/admin.api";
-import { hhmm, toHHMM } from "@/lib/format";
+import { formatDateTime, hhmm, toHHMM } from "@/lib/format";
 import AdminLayout, { formatDate } from "../AdminLayout";
 
 function ViewBox({ label, value, multiline }) {
@@ -90,6 +92,11 @@ export default function StoreDetail() {
   const addNote = useAddStoreNote(id);
   const verifyDoc = useVerifyDocument(id);
   const remove = useRemoveStore(id);
+
+  // The last few receipts this store issued — the concrete counterpart to the revenue
+  // figures on the finance screens. The full, filterable list lives at /bills.
+  const { data: billsPage, isLoading: billsLoading } = useBills({ restaurantId: id, limit: 5 });
+  const recentBills = billsPage?.bills ?? [];
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -993,6 +1000,64 @@ export default function StoreDetail() {
                     </div>
                   );
                 })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent bills — the receipts behind this store's revenue. Read-only here;
+              the full, filterable list lives at /bills?restaurantId=. */}
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-sm font-bold">Recent Bills</h2>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/bills?restaurantId=${store._id}`)}
+                  className="shrink-0 text-xs font-semibold text-brand-orange hover:underline"
+                >
+                  View all
+                </button>
+              </div>
+              <div className="mt-3 space-y-2">
+                {recentBills.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {billsLoading ? "Loading bills…" : "This store has not issued any bills yet."}
+                  </p>
+                ) : (
+                  recentBills.map((bill) => (
+                    <button
+                      key={bill._id}
+                      type="button"
+                      onClick={() => navigate(`/bills/${bill._id}`)}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl bg-brand-cream/20 px-3 py-2.5 text-left transition hover:bg-brand-cream/40"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {bill.billNumber ?? bill.reference}
+                        </span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          {[
+                            bill.tableNumber ? `Table ${bill.tableNumber}` : humanize(bill.type),
+                            formatDateTime(bill.createdAt),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block text-sm font-bold">
+                          {formatMoney(bill.charges?.grandTotal)}
+                        </span>
+                        <Badge
+                          variant={BILL_STATUS_VARIANT[bill.status] ?? "muted"}
+                          className="mt-0.5 capitalize"
+                        >
+                          {bill.status}
+                        </Badge>
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

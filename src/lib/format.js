@@ -33,6 +33,16 @@ export function formatDateTime(value) {
   });
 }
 
+// Time of day alone — used where the date is already established by the surrounding
+// context (a bill's round-by-round order history all happens on the same evening).
+export function formatTime(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function initials(name) {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "—";
