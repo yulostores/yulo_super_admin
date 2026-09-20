@@ -34,6 +34,10 @@ export const adminApi = {
   suspendStore: (id) => client.patch(`/admin/stores/${id}/suspend`),
   reactivateStore: (id) => client.patch(`/admin/stores/${id}/reactivate`),
   updateStore: (id, body) => client.patch(`/admin/stores/${id}`, body),
+  // The map point on its own. With no body the server re-geocodes the stored address and
+  // 400s if it can't place it — unlike the address-edit path, which is best-effort.
+  updateStoreLocation: (id, coordinates) =>
+    client.patch(`/admin/stores/${id}/location`, coordinates ? { coordinates } : {}),
   addStoreNote: (id, note) =>
     client.post(`/admin/stores/${id}/notes`, { note }),
   verifyDocument: (id, docId, status) =>

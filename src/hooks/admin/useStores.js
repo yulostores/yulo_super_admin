@@ -67,6 +67,14 @@ export function useUpdateStore(id) {
   return useStoreAction(id, (body) => adminApi.updateStore(id, body));
 }
 
+// Re-place the store on the map: pass explicit [lng, lat], or nothing to re-geocode the
+// stored address. Shares useStoreAction so the store detail refetches on success.
+export function useUpdateStoreLocation(id) {
+  return useStoreAction(id, (coordinates) =>
+    adminApi.updateStoreLocation(id, coordinates),
+  );
+}
+
 export function useAddStoreNote(id) {
   return useStoreAction(id, (note) => adminApi.addStoreNote(id, note));
 }

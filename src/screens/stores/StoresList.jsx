@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, Plus, Search, Store } from "lucide-react";
+import { Eye, MapPinOff, Plus, Search, Store } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +96,17 @@ function RecentRegistrations() {
       </CardContent>
     </Card>
   );
+}
+
+// The same "is this a real point?" rule the backend applies (isUsableCoordinatePair in
+// server/services/geocode.service.js): a finite [lng, lat] pair, in range, and not [0, 0].
+function hasUsableLocation(store) {
+  const c = store?.location?.coordinates;
+  if (!Array.isArray(c) || c.length !== 2) return false;
+  const [lng, lat] = c;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
+  if (Math.abs(lng) > 180 || Math.abs(lat) > 90) return false;
+  return !(lng === 0 && lat === 0);
 }
 
 export default function StoresList() {
@@ -324,7 +335,16 @@ export default function StoresList() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {s.address?.city ?? "—"}
+                          <div>{s.address?.city ?? "—"}</div>
+                          {/* An unplaceable store is approved, active, and invisible to
+                              every customer — a state that used to be indistinguishable
+                              from a healthy one anywhere in this console. Flagged in the
+                              list so it is found without opening every store in turn. */}
+                          {hasUsableLocation(s) ? null : (
+                            <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-brand-maroon/10 px-1.5 py-0.5 text-[11px] font-semibold text-brand-maroon">
+                              <MapPinOff className="h-3 w-3" /> Not on the map
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="font-semibold">
                           {formatPrice(s.revenue)}

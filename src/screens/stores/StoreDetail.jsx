@@ -19,11 +19,16 @@ import {
   useStore,
   useSuspendStore,
   useUpdateStore,
+  useUpdateStoreLocation,
   useVerifyDocument,
 } from "@/hooks/admin/useStores";
 import { useBills } from "@/hooks/admin/useBills";
 import {
   DAYS,
+  DEFAULT_DELIVERY_RADIUS_KM,
+  DISCOVERY_RADIUS_KM,
+  INDIA_BBOX,
+  MAX_DELIVERY_RADIUS_KM,
   STORE_DOCUMENT_TYPES,
   STORE_STATUS_LABEL,
   STORE_STATUS_VARIANT,
@@ -36,6 +41,105 @@ import DocumentViewer, {
 import { adminApi } from "@/api/admin.api";
 import { formatDateTime, hhmm, toHHMM } from "@/lib/format";
 import AdminLayout, { formatDate } from "../AdminLayout";
+
+// Everything an admin needs to answer "why can't customers see this store?", in one place.
+//
+// The three ways a live, approved store stays invisible, none of which was visible from any
+// portal before this:
+//
+//   1. No map point at all — the address never geocoded.
+//   2. [0, 0] — "Null Island", the value a failed lookup used to be defaulted to. The store
+//      sits in the Gulf of Guinea and matches nobody's search.
+//   3. A reversed pair — [latitude, longitude] where GeoJSON wants [longitude, latitude].
+//      Both halves are individually valid, so nothing rejected it; the store is simply in
+//      the wrong hemisphere.
+//
+// The fourth, much less dramatic case is a store that is placed correctly but whose own
+// delivery radius is smaller than the distance to the customer. That one is not a fault, so
+// it is reported as a plain fact rather than as a problem.
+function StoreLocationSummary({ store, onRegeocode, regeocoding, error }) {
+  const coordinates = store.location?.coordinates;
+  const [lng, lat] = Array.isArray(coordinates) ? coordinates : [];
+  const hasPair =
+    Array.isArray(coordinates) &&
+    coordinates.length === 2 &&
+    Number.isFinite(lng) &&
+    Number.isFinite(lat);
+
+  const isNullIsland = hasPair && lng === 0 && lat === 0;
+  const inBox = (x, y) =>
+    x >= INDIA_BBOX.minLng &&
+    x <= INDIA_BBOX.maxLng &&
+    y >= INDIA_BBOX.minLat &&
+    y <= INDIA_BBOX.maxLat;
+  const looksReversed = hasPair && !inBox(lng, lat) && inBox(lat, lng);
+  const outOfArea = hasPair && !isNullIsland && !looksReversed && !inBox(lng, lat);
+
+  const problem = !hasPair
+    ? "This store has no map point, so it cannot appear in any customer's list however correct its address is. Re-place it from the address below."
+    : isNullIsland
+      ? "This store sits at [0, 0] — a placeholder in the Gulf of Guinea, not a real location. It is invisible to every customer. Re-place it from the address below."
+      : looksReversed
+        ? `These coordinates look reversed: as latitude ${lng}, longitude ${lat} they fall inside India, but they are stored the other way round. The store is currently placed in the wrong hemisphere.`
+        : outOfArea
+          ? "These coordinates fall outside the area this platform serves. Check them, or re-place the store from its address."
+          : null;
+
+  const ownRadius = store.delivery?.radiusKm;
+  const effectiveRadius = Math.min(
+    Number(ownRadius) > 0 ? Number(ownRadius) : DEFAULT_DELIVERY_RADIUS_KM,
+    MAX_DELIVERY_RADIUS_KM,
+  );
+
+  return (
+    <>
+      <ViewBox label="Latitude" value={hasPair ? String(lat) : null} />
+      <ViewBox label="Longitude" value={hasPair ? String(lng) : null} />
+
+      <div className="sm:col-span-2 space-y-3">
+        {problem ? (
+          <p className="rounded-lg border border-brand-maroon/30 bg-brand-maroon/5 px-3 py-2 text-xs font-medium text-brand-maroon">
+            {problem}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Customers within {DISCOVERY_RADIUS_KM} km of this point see this store, nearest
+            first.{" "}
+            {Number(ownRadius) > 0
+              ? `It delivers up to ${effectiveRadius} km; beyond that it is still listed, marked as not deliverable.`
+              : `No delivery radius is set, so it is treated as delivering across the full ${effectiveRadius} km.`}
+          </p>
+        )}
+
+        {error ? (
+          <p className="text-xs font-semibold text-brand-maroon">{error}</p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRegeocode}
+            disabled={regeocoding}
+          >
+            {regeocoding ? "Placing…" : "Re-place from address"}
+          </Button>
+          {hasPair ? (
+            <a
+              href={`https://www.google.com/maps?q=${lat},${lng}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-semibold text-brand-orange"
+            >
+              Open on a map
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
+}
 
 function ViewBox({ label, value, multiline }) {
   return (
@@ -89,6 +193,7 @@ export default function StoreDetail() {
   const suspend = useSuspendStore(id);
   const reactivate = useReactivateStore(id);
   const update = useUpdateStore(id);
+  const updateLocation = useUpdateStoreLocation(id);
   const addNote = useAddStoreNote(id);
   const verifyDoc = useVerifyDocument(id);
   const remove = useRemoveStore(id);
@@ -110,6 +215,9 @@ export default function StoreDetail() {
   const [hoursForm, setHoursForm] = useState([]);
   const [editingDelivery, setEditingDelivery] = useState(false);
   const [deliveryForm, setDeliveryForm] = useState({});
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locationForm, setLocationForm] = useState({ lat: "", lng: "" });
+  const [locationError, setLocationError] = useState(null);
   const [editingBusiness, setEditingBusiness] = useState(false);
   const [businessForm, setBusinessForm] = useState({});
   const [editingLicenses, setEditingLicenses] = useState(false);
@@ -141,6 +249,15 @@ export default function StoreDetail() {
       }),
     );
     setDeliveryForm(store.delivery ?? {});
+    // Coordinates are stored GeoJSON [lng, lat]; the inputs are labelled lat/lng because
+    // that is the order every map app on earth shows them in, and pasting a pair the wrong
+    // way round is the single easiest way to move a restaurant to the Arctic.
+    const [lng, lat] = store.location?.coordinates ?? [];
+    setLocationForm({
+      lat: Number.isFinite(lat) ? String(lat) : "",
+      lng: Number.isFinite(lng) ? String(lng) : "",
+    });
+    setLocationError(null);
     setBusinessForm(store.settings ?? {});
     setLicensesForm(store.settings ?? {});
     setProfileForm({
@@ -489,6 +606,88 @@ export default function StoreDetail() {
                   ? `${store.delivery.estimatedMinutes} mins`
                   : "—"
               }
+            />
+          </EditableCard>
+
+          {/* Map Location — where this store actually sits for "restaurants near me".
+              Not cosmetic: a store with a missing, zeroed or reversed point is approved,
+              active, correctly addressed and invisible to every customer, and until this
+              card existed there was nowhere in any portal to see that, let alone fix it. */}
+          <EditableCard
+            title="Map Location"
+            editing={editingLocation}
+            saving={updateLocation.isPending}
+            onEdit={() => {
+              setLocationError(null);
+              setEditingLocation(true);
+            }}
+            onCancel={() => {
+              setEditingLocation(false);
+              setLocationError(null);
+            }}
+            onSave={() => {
+              setLocationError(null);
+              const lat = Number(locationForm.lat);
+              const lng = Number(locationForm.lng);
+              if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                setLocationError("Enter both a latitude and a longitude.");
+                return;
+              }
+              // Sent GeoJSON-order, which is the reverse of how the inputs are labelled.
+              updateLocation.mutate([lng, lat], {
+                onSuccess: () => setEditingLocation(false),
+                onError: (err) =>
+                  setLocationError(err?.message ?? "Could not update the location."),
+              });
+            }}
+            editChildren={
+              <>
+                <div className="space-y-1.5">
+                  <Label>Latitude</Label>
+                  <Input
+                    value={locationForm.lat}
+                    onChange={(e) =>
+                      setLocationForm((f) => ({ ...f, lat: e.target.value }))
+                    }
+                    placeholder="e.g. 23.9924"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Longitude</Label>
+                  <Input
+                    value={locationForm.lng}
+                    onChange={(e) =>
+                      setLocationForm((f) => ({ ...f, lng: e.target.value }))
+                    }
+                    placeholder="e.g. 85.3616"
+                  />
+                </div>
+                {locationError ? (
+                  <p className="sm:col-span-2 text-xs font-semibold text-brand-maroon">
+                    {locationError}
+                  </p>
+                ) : null}
+                <p className="sm:col-span-2 text-xs text-muted-foreground">
+                  Paste the pair exactly as a map app shows it — latitude first. Leave both
+                  as they are and use “Re-place from address” below to have the address
+                  looked up again instead.
+                </p>
+              </>
+            }
+          >
+            <StoreLocationSummary
+              store={store}
+              onRegeocode={() => {
+                setLocationError(null);
+                updateLocation.mutate(undefined, {
+                  onError: (err) =>
+                    setLocationError(
+                      err?.message ?? "Could not place that address on the map.",
+                    ),
+                });
+              }}
+              regeocoding={updateLocation.isPending}
+              error={locationError}
             />
           </EditableCard>
 

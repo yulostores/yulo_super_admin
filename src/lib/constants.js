@@ -139,3 +139,14 @@ export const DAYS = [
 ];
 
 export const MAX_UPLOAD_MB = 5;
+
+// Delivery geography — mirrors server/config/delivery.config.js. Shown on the store detail
+// so an admin can tell "this store is out of range for that customer" from "this store has
+// no usable map point at all", which used to look identical (invisible) from here.
+export const DISCOVERY_RADIUS_KM = 25;
+export const DEFAULT_DELIVERY_RADIUS_KM = DISCOVERY_RADIUS_KM;
+export const MAX_DELIVERY_RADIUS_KM = DISCOVERY_RADIUS_KM;
+
+// The envelope services/address.service.js validates customer pins against. Used here only
+// to flag a store whose coordinates fall outside it — almost always a reversed [lat, lng].
+export const INDIA_BBOX = { minLng: 68, maxLng: 98, minLat: 6, maxLat: 38 };
