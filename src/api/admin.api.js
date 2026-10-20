@@ -23,6 +23,10 @@ export const adminApi = {
     client.get("/admin/finance/earnings-vs-spending", { params: { months } }),
   getFinanceRestaurants: (params = {}) =>
     client.get("/admin/finance/restaurants", { params }),
+  // Finance Settings are versioned: a save creates a new version (never edits one), from now
+  // or from a future effectiveFrom. body: { settings: { <changed fields> }, effectiveFrom?, note? }
+  getFinanceSettings: () => client.get("/admin/finance/settings"),
+  saveFinanceSettings: (body) => client.post("/admin/finance/settings", body),
 
   // ── Stores ───────────────────────────────────────────────────────────
   listStores: (params = {}) => client.get("/admin/stores", { params }),
@@ -51,6 +55,25 @@ export const adminApi = {
       .get(`/admin/stores/${id}/documents/${docId}/file`, { responseType: "blob" })
       .then((r) => r.data),
   removeStore: (id) => client.delete(`/admin/stores/${id}`),
+
+  // ── Store bank account (payouts go here) ─────────────────────────────
+  // Masked everywhere: only the last four digits ever come back, except from reveal, which
+  // is audit-logged and served no-store. Decisions carry the timestamp the admin was looking
+  // at (submittedAt for the account, requestedAt for a change request) so a change made by
+  // the owner meanwhile is refused (409 ACCOUNT_CHANGED) instead of approved unseen.
+  getStorePayoutAccount: (id) => client.get(`/admin/stores/${id}/payout-account`),
+  revealStorePayoutAccount: (id, which = "current") =>
+    client.post(`/admin/stores/${id}/payout-account/reveal`, { which }),
+  verifyStorePayoutAccount: (id, submittedAt) =>
+    client.patch(`/admin/stores/${id}/payout-account/verify`, { submittedAt }),
+  rejectStorePayoutAccount: (id, reason, submittedAt) =>
+    client.patch(`/admin/stores/${id}/payout-account/reject`, { reason, submittedAt }),
+  verifyStorePayoutChange: (id, requestedAt) =>
+    client.patch(`/admin/stores/${id}/payout-account/change/verify`, { requestedAt }),
+  rejectStorePayoutChange: (id, reason, requestedAt) =>
+    client.patch(`/admin/stores/${id}/payout-account/change/reject`, { reason, requestedAt }),
+  requestStorePayoutChangeInfo: (id, message, requestedAt) =>
+    client.patch(`/admin/stores/${id}/payout-account/change/request-info`, { message, requestedAt }),
 
   // ── Bills ────────────────────────────────────────────────────────────
   // Platform-wide receipts, filterable by store, status, type, table and date.
@@ -125,4 +148,98 @@ export const adminApi = {
   updateTicket: (id, body) => client.patch(`/admin/tickets/${id}`, body),
   addTicketMessage: (id, text) =>
     client.post(`/admin/tickets/${id}/messages`, { text }),
+
+  // ── Restaurant payouts (B12 — manual release, two status axes) ───────
+  // Every action is a conditional server-side step: a stale screen gets 409 and refetches.
+  getPayoutsWeekly: (weekStart) =>
+    client.get("/admin/finance/payouts/weekly", {
+      params: weekStart ? { weekStart } : {},
+    }),
+  getPayoutsClearance: (params = {}) =>
+    client.get("/admin/finance/payouts/clearance", { params }),
+  getPayoutsHistory: (params = {}) =>
+    client.get("/admin/finance/payouts/history", { params }),
+  // The filtered history (every page) as CSV — fetched as a Blob and saved by the screen.
+  exportPayoutsHistory: (params = {}) =>
+    client
+      .get("/admin/finance/payouts/history/export", {
+        params,
+        responseType: "blob",
+      })
+      .then((r) => r.data),
+  getPayoutOptions: () => client.get("/admin/finance/payouts/options"),
+  // One statement's rows (admin columns) as CSV — the D-frames' download until PDFs exist.
+  exportSettlement: (id) =>
+    client
+      .get(`/admin/finance/settlements/${id}/export`, { responseType: "blob" })
+      .then((r) => r.data),
+  // PDF statement / payment receipt of one payout → { blob, filename } (the server names it).
+  downloadPayoutPdf: (id, kind = "statement") =>
+    client
+      .get(
+        `/admin/finance/payouts/${id}/${kind === "receipt" ? "receipt.pdf" : "pdf"}`,
+        { responseType: "blob" },
+      )
+      .then((r) => ({
+        blob: r.data,
+        filename:
+          /filename="?([^";]+)"?/i.exec(
+            r.headers?.["content-disposition"] ?? "",
+          )?.[1] ?? null,
+      })),
+  getPayout: (id) => client.get(`/admin/finance/payouts/${id}`),
+  schedulePayout: (id, scheduledFor) =>
+    client.patch(`/admin/finance/payouts/${id}/schedule`, { scheduledFor }),
+  changePayoutDate: (id, scheduledFor) =>
+    client.patch(`/admin/finance/payouts/${id}/schedule-date`, {
+      scheduledFor,
+    }),
+  reschedulePayout: (id, scheduledFor) =>
+    client.patch(`/admin/finance/payouts/${id}/reschedule`, { scheduledFor }),
+  // expectedNetPaise: the amount the admin confirmed in M2 — refused (409 AMOUNT_CHANGED) if
+  // the statement changed since.
+  releasePayout: (id, expectedNetPaise) =>
+    client.patch(`/admin/finance/payouts/${id}/release`, { expectedNetPaise }),
+  markPayoutPaid: (id, body) =>
+    client.patch(`/admin/finance/payouts/${id}/mark-paid`, body),
+  markPayoutFailed: (id, body) =>
+    client.patch(`/admin/finance/payouts/${id}/mark-failed`, body),
+  holdPayout: (id, body) =>
+    client.patch(`/admin/finance/payouts/${id}/hold`, body),
+  updatePayoutHoldReason: (id, body) =>
+    client.patch(`/admin/finance/payouts/${id}/hold-reason`, body),
+  releasePayoutHold: (id) =>
+    client.patch(`/admin/finance/payouts/${id}/release-hold`),
+  // Maintenance (the Monday scheduler normally generates statements).
+  generateSettlements: (weekStart) =>
+    client.post("/admin/finance/settlements/generate", { weekStart }),
+  // body: { restaurantId, amountPaise, direction: credit|debit, kind: correction|penalty, note }
+  addSettlementAdjustment: (body) =>
+    client.post("/admin/finance/settlements/adjustments", body),
+
+  // Bank account change requests across restaurants (Payouts → Bank requests).
+  listBankRequests: (params = {}) =>
+    client.get("/admin/bank-requests", { params }),
+
+  // ── Payment issues (SupportTicket, kind=payment) ─────────────────────
+  getTicketCounts: (kind) =>
+    client.get("/admin/tickets/counts", { params: kind ? { kind } : {} }),
+  // A reply or a request for information, with an optional attachment (multipart).
+  replyToTicket: (id, { text, file, requestsInformation = false }) => {
+    const path = `/admin/tickets/${id}/${requestsInformation ? "request-information" : "messages"}`;
+    if (!file) return client.post(path, { text });
+    const form = new FormData();
+    form.append("text", text);
+    form.append("attachment", file);
+    return client.post(path, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  // Streamed through the API (never the storage URL), as a Blob for an object URL.
+  getTicketAttachment: (id, attachmentId) =>
+    client
+      .get(`/admin/tickets/${id}/attachments/${attachmentId}`, {
+        responseType: "blob",
+      })
+      .then((r) => r.data),
 };

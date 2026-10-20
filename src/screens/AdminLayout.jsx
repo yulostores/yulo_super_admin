@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   Bell,
   ChevronDown,
+  CreditCard,
   Headset,
   LayoutDashboard,
   LogOut,
@@ -35,6 +36,8 @@ const NAV = [
   // The receipts behind the revenue figures on the finance screens.
   { to: "/bills", label: "Bills", icon: ReceiptText },
   { to: "/customers", label: "Customer Report", icon: Users },
+  // Weekly restaurant payouts (manual release) and the payment issues raised about them.
+  { to: "/payouts", label: "Restaurant Payouts", icon: CreditCard },
   { to: "/delivery-partners", label: "Delivery Partners", icon: Truck },
   { to: "/tickets", label: "Support & Tickets", icon: Headset },
 ];
@@ -101,6 +104,8 @@ export default function AdminLayout({
   breadcrumb,
   subtitle,
   action,
+  // Extra classes on <main> — the payout pages pass "pay-scope" for their own design system.
+  mainClassName,
 }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -157,7 +162,12 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col gap-5 p-6 pb-12 lg:px-7">
+      <main
+        className={cn(
+          "flex min-w-0 flex-1 flex-col gap-5 p-6 pb-12 lg:px-7",
+          mainClassName,
+        )}
+      >
         <header className="flex items-center justify-between">
           <div>
             {breadcrumb ? (

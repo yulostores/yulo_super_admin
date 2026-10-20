@@ -14,15 +14,19 @@ import {
 } from "recharts";
 import {
   ArrowRight,
+  Banknote,
   CreditCard,
   Download,
   Percent,
+  RotateCcw,
+  Settings2,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Table,
@@ -34,12 +38,17 @@ import {
 } from "@/components/ui/table";
 import PaginationBar from "@/components/admin/PaginationBar";
 import { usePagination } from "@/hooks/admin/usePagination";
+import { useToast } from "@/components/admin/Toaster";
 import {
+  fetchAllFinanceRestaurants,
   useFinanceOverview,
+  useFinanceSettings,
+  usePayoutTotals,
   useRevenueTrend,
   useEarningsVsSpending,
   useFinanceRestaurants,
 } from "@/hooks/admin/useFinance";
+import { rupees } from "@/lib/financeSettings";
 import { STORE_STATUS_VARIANT } from "@/lib/constants";
 import { CHART } from "@/lib/palette";
 import { initials } from "@/lib/format";
@@ -55,6 +64,8 @@ const RANGES = [
 function monthLabel(date) {
   return new Date(date).toLocaleDateString("en-IN", { month: "short" });
 }
+
+const plural = (n, word) => `${n ?? 0} ${word}${(n ?? 0) === 1 ? "" : "s"}`;
 
 function LegendDot({ color, label }) {
   return (
@@ -104,7 +115,7 @@ function downloadCsv(rows) {
     "Online Revenue",
     "Dine-in Revenue",
     "Total Revenue",
-    "Commission",
+    "Settlement charge",
     "Growth %",
     "Status",
   ];
@@ -152,6 +163,12 @@ export default function FinancialAnalytics() {
   });
   const { data: trend } = useRevenueTrend(months);
   const { data: earningsVsSpending } = useEarningsVsSpending(months);
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+  // The settlement charge replaced the old flat commission; its rate is a Finance Setting.
+  const { data: financeSettings } = useFinanceSettings();
+  const chargePercent = financeSettings?.active?.settlementChargePercent;
+  const { data: payoutTotals } = usePayoutTotals({ from, to });
   const { page, limit, setPage, setLimit } = usePagination(10);
   const { data: restaurantData } = useFinanceRestaurants({
     page,
@@ -168,21 +185,33 @@ export default function FinancialAnalytics() {
     ].filter((d) => d.value > 0);
   }, [overview]);
 
+  // The export covers every restaurant in the range, not only the page on screen.
+  async function exportReport() {
+    setExporting(true);
+    try {
+      downloadCsv(await fetchAllFinanceRestaurants({ from, to }));
+    } catch (err) {
+      toast.error(err, "Could not export the report.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const platformEarningsDonut = useMemo(() => {
     if (!overview) return [];
     return [
       {
-        name: "Commission",
+        name: "Settlement charge",
         value: overview.commissionRevenue,
         color: CHART.commission,
       },
       {
-        name: "Partner cost",
+        name: "Rider pay",
         value: overview.deliveryPartnerPayout,
         color: CHART.spend,
       },
       {
-        name: "Net profit",
+        name: "Net",
         value: overview.netPlatformProfit,
         color: CHART.profit,
       },
@@ -192,7 +221,27 @@ export default function FinancialAnalytics() {
   return (
     <AdminLayout
       title="Financial Analytics"
-      subtitle="Monitor platform revenue, restaurant earnings, commissions, and operational spending."
+      subtitle="Platform revenue, the settlement charge Yulo earns, rider pay and restaurant payouts. Money is what the server reports — nothing is recomputed here."
+      action={
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate("/finance/refunds")}
+            className="gap-1.5"
+          >
+            <RotateCcw className="h-4 w-4" /> Refunds
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate("/finance/settings")}
+            className="gap-1.5"
+          >
+            <Settings2 className="h-4 w-4" /> Finance settings
+          </Button>
+        </div>
+      }
     >
       {overviewLoading ? (
         <p className="text-sm text-muted-foreground">
@@ -203,7 +252,7 @@ export default function FinancialAnalytics() {
           <StatCard
             icon={CreditCard}
             iconClass="bg-brand-orange2 text-white"
-            label="Total Gross Revenue"
+            label="Gross merchandise value"
             value={formatPrice(overview?.grossRevenue)}
             sub={`Online ${formatPrice(overview?.onlineRevenue)} · Dine-in ${formatPrice(overview?.dineInRevenue)}`}
             action={
@@ -219,35 +268,103 @@ export default function FinancialAnalytics() {
           <StatCard
             icon={Wallet}
             iconClass="bg-brand-blue2 text-white"
-            label="Delivery Partner Payout"
+            label="Rider pay"
             value={formatPrice(overview?.deliveryPartnerPayout)}
-            sub="Operational spending"
+            sub={`Base + distance pay. Tips passed through to riders: ${formatPrice(overview?.riderTipsPassedThrough)}`}
             action={
               <button
                 type="button"
                 onClick={() => navigate("/delivery-partners")}
                 className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-brand-cream px-3 py-2 text-xs font-semibold text-brand-orange hover:bg-brand-orange/10"
               >
-                View delivery partner <ArrowRight className="h-3.5 w-3.5" />
+                View delivery partners <ArrowRight className="h-3.5 w-3.5" />
               </button>
             }
           />
           <StatCard
             icon={Percent}
             iconClass="bg-brand-teal text-white"
-            label="Yulo Commission Revenue"
+            label={`Settlement charge${chargePercent != null ? ` (${chargePercent}%)` : ""}`}
             value={formatPrice(overview?.commissionRevenue)}
-            sub="Platform earnings"
+            sub="Charged to restaurants on what customers paid, incl. GST"
           />
           <StatCard
             icon={TrendingUp}
             iconClass="bg-brand-indigo text-white"
-            label="Net Platform Profit"
+            label="Settlement charge less rider pay"
             value={formatPrice(overview?.netPlatformProfit)}
-            sub="Net earnings after deducting delivery partner payouts."
+            sub="Before Razorpay's fees; excludes platform fees and delivery charges (Yulo money)."
           />
         </section>
       )}
+
+      {/* Yulo's own money for the range, from the ledger's settled figures (overview.yulo). */}
+      {overview?.yulo ? (
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            icon={TrendingUp}
+            iconClass="bg-brand-green text-white"
+            label="Yulo revenue"
+            value={formatPrice(overview.yulo.yuloRevenue)}
+            sub={`Platform fees ${formatPrice(overview.yulo.platformFees)} · Delivery ${formatPrice(overview.yulo.deliveryCharges)} · Settlement margin ${formatPrice(overview.yulo.settlementMargin)}`}
+          />
+          <StatCard
+            icon={CreditCard}
+            iconClass="bg-brand-orange2 text-white"
+            label="Razorpay fees"
+            value={formatPrice(overview.yulo.gatewayFees)}
+            sub={`Actual fees on online payments, incl. ${formatPrice(overview.yulo.gatewayGst)} GST`}
+          />
+          <StatCard
+            icon={Percent}
+            iconClass="bg-brand-indigo text-white"
+            label="GST — Yulo's liability (18%)"
+            value={formatPrice(overview.yulo.gst.yuloLiability)}
+            sub={`Platform fees ${formatPrice(overview.yulo.gst.yuloOnPlatformFees)} · Delivery ${formatPrice(overview.yulo.gst.yuloOnDelivery)} · Settlement charge ${formatPrice(overview.yulo.gst.yuloOnSettlementCharges)}`}
+          />
+          <StatCard
+            icon={Percent}
+            iconClass="bg-brand-teal text-white"
+            label="Food GST — restaurants' liability"
+            value={formatPrice(overview.yulo.gst.foodRestaurantLiability)}
+            sub="Collected on online orders for GST-registered restaurants"
+          />
+        </section>
+      ) : null}
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {[
+          {
+            label: "Paid to restaurants",
+            kpi: payoutTotals?.paid,
+            sub: (k) =>
+              `${plural(k?.count, "transfer")} recorded in this range`,
+          },
+          {
+            label: "Scheduled payouts",
+            kpi: payoutTotals?.scheduled,
+            sub: (k) =>
+              k?.nextDate
+                ? `${plural(k.count, "payout")} · next ${new Date(k.nextDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`
+                : `${plural(k?.count, "payout")}`,
+          },
+          {
+            label: "Not yet scheduled",
+            kpi: payoutTotals?.notYetScheduled,
+            sub: (k) =>
+              `${plural(k?.count, "eligible payout")} waiting for a date`,
+          },
+        ].map(({ label, kpi, sub }) => (
+          <StatCard
+            key={label}
+            icon={Banknote}
+            iconClass="bg-brand-green text-white"
+            label={label}
+            value={payoutTotals ? rupees(kpi?.amountPaise) : "—"}
+            sub={payoutTotals ? sub(kpi) : "Loading…"}
+          />
+        ))}
+      </section>
 
       <div className="flex items-center justify-end gap-2">
         <div className="flex gap-1 rounded-lg border border-brand-cream/70 p-1">
@@ -271,11 +388,12 @@ export default function FinancialAnalytics() {
         </div>
         <button
           type="button"
-          onClick={() => downloadCsv(restaurantData?.rows ?? [])}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white"
+          onClick={exportReport}
+          disabled={exporting}
+          className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
         >
           <Download className="h-3.5 w-3.5" />
-          Export report
+          {exporting ? "Exporting…" : "Export report"}
         </button>
       </div>
 
@@ -343,8 +461,8 @@ export default function FinancialAnalytics() {
             </p>
             <h2 className="text-base font-bold">Platform profitability</h2>
             <div className="flex items-center gap-3 pt-1">
-              <LegendDot color={CHART.commission} label="Commission revenue" />
-              <LegendDot color={CHART.spend} label="Delivery partner spend" />
+              <LegendDot color={CHART.dineIn} label="Settlement charge" />
+              <LegendDot color={CHART.spend} label="Rider pay" />
             </div>
           </CardHeader>
           <CardContent>
@@ -371,7 +489,7 @@ export default function FinancialAnalytics() {
                   <Line
                     type="monotone"
                     dataKey="earnings"
-                    name="Commission revenue"
+                    name="Settlement charge"
                     stroke={CHART.dineIn}
                     strokeWidth={2}
                     dot={false}
@@ -379,7 +497,7 @@ export default function FinancialAnalytics() {
                   <Line
                     type="monotone"
                     dataKey="spending"
-                    name="Delivery partner spend"
+                    name="Rider pay"
                     stroke={CHART.spend}
                     strokeWidth={2}
                     dot={false}
@@ -409,7 +527,7 @@ export default function FinancialAnalytics() {
                 title: "Platform earnings",
                 data: platformEarningsDonut,
                 centerValue: overview?.netPlatformProfit,
-                centerLabel: "Net profit",
+                centerLabel: "Net",
               },
             ].map(({ title, data, centerValue, centerLabel }) => (
               <div key={title}>
@@ -495,7 +613,7 @@ export default function FinancialAnalytics() {
                 <TableHead>Online revenue</TableHead>
                 <TableHead>Dine-in revenue</TableHead>
                 <TableHead>Total revenue</TableHead>
-                <TableHead>Commission</TableHead>
+                <TableHead>Settlement charge</TableHead>
                 <TableHead className="pr-6">Status</TableHead>
               </TableRow>
             </TableHeader>

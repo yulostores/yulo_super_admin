@@ -71,6 +71,28 @@ export default {
           indigo: "#3B73D4",
           leaf: "#43A047",
         },
+        // Restaurant Payouts / Payment issues design system (Figma "Payouts (Bible)") — used only
+        // by src/screens/payouts/* inside the .pay-scope wrapper; the rest of the portal keeps
+        // the brand/status palette above.
+        pay: {
+          accent: "#FF5F00",
+          outline: "#F0592A",
+          tint: "#FDEEE6",
+          canvas: "#FAFAF8",
+          sunken: "#F5F5F5",
+          line: "#E8E2D9",
+          ink: "#1A1A1A",
+          ink2: "#666666",
+          ink3: "#999999",
+          pos: "#17803D",
+          "pos-bg": "#E8F8ED",
+          info: "#1E4E8C",
+          "info-bg": "#E8F0FE",
+          warn: "#B45309",
+          "warn-bg": "#FFF8E1",
+          danger: "#B91C1C",
+          "danger-bg": "#FCE8E8",
+        },
         // Status tints used by Badge and the status pills.
         status: {
           ok: "#2E7D32",
@@ -97,6 +119,12 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        pay: ['"Plus Jakarta Sans"', "Inter", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        "pay-card": "0 4px 12px rgba(26,26,26,0.06), 0 1px 2px rgba(26,26,26,0.04)",
+        "pay-primary": "0 4px 6px rgba(217,71,15,0.3)",
+        "pay-modal": "0 24px 48px rgba(26,26,26,0.18)",
       },
     },
   },

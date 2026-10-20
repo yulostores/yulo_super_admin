@@ -4,12 +4,19 @@
 // restaurant printed, the waiter settled and the guest paid against
 // (components/admin/BillDocument.jsx). "View details" opens the round-by-round order
 // history behind the total.
+//
+// Beside it, the admin-only money picture (components/admin/MoneyBreakdown.jsx): a delivery
+// or takeaway bill's figures live on its order, a dine-in bill's on the bill. This is also
+// the admin's view of a single order — there is no separate order screen, and every
+// delivery / takeaway order has its own bill.
 
 import { useParams } from "react-router-dom";
 
 import { Card, CardContent } from "@/components/ui/card";
 import BillDocument from "@/components/admin/BillDocument";
+import MoneyBreakdown from "@/components/admin/MoneyBreakdown";
 import { useBill } from "@/hooks/admin/useBills";
+import { useBillMoney } from "@/hooks/admin/useFinance";
 import { formatDateTime } from "@/lib/format";
 import { humanize } from "@/lib/bill";
 import AdminLayout from "../AdminLayout";
@@ -17,6 +24,7 @@ import AdminLayout from "../AdminLayout";
 export default function BillDetail() {
   const { id } = useParams();
   const { data: bill, isLoading, error } = useBill(id);
+  const money = useBillMoney(bill);
 
   if (isLoading) {
     return (
@@ -50,11 +58,18 @@ export default function BillDetail() {
         .filter(Boolean)
         .join(" · ")}
     >
-      <Card>
-        <CardContent className="p-5 sm:p-6">
-          <BillDocument bill={bill} />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <Card>
+          <CardContent className="p-5 sm:p-6">
+            <BillDocument bill={bill} />
+          </CardContent>
+        </Card>
+        <MoneyBreakdown
+          data={money.data}
+          isLoading={money.isLoading}
+          error={money.error}
+        />
+      </div>
     </AdminLayout>
   );
 }

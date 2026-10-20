@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { Send } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,11 @@ import {
   useTicket,
   useUpdateTicket,
 } from "@/hooks/admin/useTickets";
-import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
+import {
+  TICKET_PRIORITIES,
+  TICKET_SETTABLE_STATUSES,
+  TICKET_STATUS_LABEL,
+} from "@/lib/constants";
 import AdminLayout, { formatDate } from "../AdminLayout";
 
 export default function TicketDetail() {
@@ -45,6 +49,11 @@ export default function TicketDetail() {
     );
   }
 
+  // Payment issues have their own screen (linked payout, ask-for-information, attachments).
+  if (ticket.kind === "payment") {
+    return <Navigate to={`/payouts/issues/${ticket._id}`} replace />;
+  }
+
   return (
     <AdminLayout
       breadcrumb="Support & Tickets > Ticket Details"
@@ -69,19 +78,21 @@ export default function TicketDetail() {
             <CardContent className="space-y-3">
               {(ticket.messages ?? []).map((m, i) => (
                 <div
-                  key={i}
+                  key={m._id ?? i}
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
-                    m.senderType === "admin"
+                    m.from === "support" || m.senderType === "admin"
                       ? "ml-auto bg-brand-orange text-white"
                       : "bg-brand-cream/30"
                   }`}
                 >
                   <p>{m.text}</p>
                   <p
-                    className={`mt-1 text-[10px] ${m.senderType === "admin" ? "text-white/70" : "text-muted-foreground"}`}
+                    className={`mt-1 text-[10px] ${m.from === "support" || m.senderType === "admin" ? "text-white/70" : "text-muted-foreground"}`}
                   >
-                    {m.senderType === "admin" ? "Admin" : "User"} ·{" "}
-                    {formatDate(m.sentAt)}
+                    {m.from === "support" || m.senderType === "admin"
+                      ? "Admin"
+                      : "User"}{" "}
+                    · {formatDate(m.sentAt)}
                   </p>
                 </div>
               ))}
@@ -132,9 +143,9 @@ export default function TicketDetail() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TICKET_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s} className="capitalize">
-                        {s.replace(/_/g, " ")}
+                    {TICKET_SETTABLE_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {TICKET_STATUS_LABEL[s]}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -130,8 +130,7 @@ function PayoutDetails({ partnerId }) {
                   {formatDate(payout.periodEnd)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {payout.deliveriesCount} deliveries · ₹
-                  {payout.perDeliveryRate}/delivery
+                  {payout.deliveriesCount} deliveries
                 </p>
               </div>
               <Badge
@@ -184,9 +183,23 @@ function PayoutDetails({ partnerId }) {
               </div>
             ) : (
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {/* Gross = base + distance pay; tips are the customers', passed through in
+                    full — so Net Payable = gross + tips + incentives − deductions adds up here. */}
+                <ReadOnlyField
+                  label="Base Pay"
+                  value={formatPrice(payout.basePay)}
+                />
+                <ReadOnlyField
+                  label="Distance Pay"
+                  value={formatPrice(payout.distancePay)}
+                />
                 <ReadOnlyField
                   label="Gross Earnings"
                   value={formatPrice(payout.grossEarnings)}
+                />
+                <ReadOnlyField
+                  label="Tips (100% to rider)"
+                  value={formatPrice(payout.tips)}
                 />
                 <ReadOnlyField
                   label="Incentives"

@@ -22,7 +22,9 @@ import { usePagination } from "@/hooks/admin/usePagination";
 import { useTickets } from "@/hooks/admin/useTickets";
 import {
   TICKET_CATEGORIES,
+  TICKET_KINDS,
   TICKET_PRIORITIES,
+  TICKET_STATUS_LABEL,
   TICKET_PRIORITY_VARIANT,
   TICKET_STATUS_VARIANT,
   TICKET_STATUSES,
@@ -35,12 +37,16 @@ export default function TicketsList() {
   const status = searchParams.get("status") ?? "all";
   const [priority, setPriority] = useState("all");
   const [category, setCategory] = useState("all");
+  // Payment issues (kind=payment) are worked on in Payouts → Payment issues; this list can
+  // still show them, filtered or mixed with general tickets.
+  const [kind, setKind] = useState("all");
   const { page, limit, setPage, setLimit } = usePagination(10);
 
   const { data, isLoading, error } = useTickets({
     status: status === "all" ? undefined : status,
     priority: priority === "all" ? undefined : priority,
     category: category === "all" ? undefined : category,
+    kind: kind === "all" ? undefined : kind,
     page,
     limit,
   });
@@ -64,8 +70,27 @@ export default function TicketsList() {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             {TICKET_STATUSES.map((s) => (
-              <SelectItem key={s} value={s} className="capitalize">
-                {s.replace(/_/g, " ")}
+              <SelectItem key={s} value={s}>
+                {TICKET_STATUS_LABEL[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={kind}
+          onValueChange={(v) => {
+            setKind(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[170px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Tickets</SelectItem>
+            {TICKET_KINDS.map((k) => (
+              <SelectItem key={k.value} value={k.value}>
+                {k.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -132,9 +157,20 @@ export default function TicketsList() {
                 <TableRow
                   key={t._id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/tickets/${t._id}`)}
+                  onClick={() =>
+                    navigate(
+                      t.kind === "payment"
+                        ? `/payouts/issues/${t._id}`
+                        : `/tickets/${t._id}`,
+                    )
+                  }
                 >
                   <TableCell className="pl-6 font-semibold">
+                    {t.ticketNumber ? (
+                      <span className="mr-2 font-mono text-xs text-muted-foreground">
+                        {t.ticketNumber}
+                      </span>
+                    ) : null}
                     {t.subject}
                   </TableCell>
                   <TableCell className="capitalize text-muted-foreground">
@@ -152,11 +188,8 @@ export default function TicketsList() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={TICKET_STATUS_VARIANT[t.status] ?? "muted"}
-                      className="capitalize"
-                    >
-                      {t.status?.replace(/_/g, " ")}
+                    <Badge variant={TICKET_STATUS_VARIANT[t.status] ?? "muted"}>
+                      {TICKET_STATUS_LABEL[t.status] ?? t.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="pr-6 text-muted-foreground">

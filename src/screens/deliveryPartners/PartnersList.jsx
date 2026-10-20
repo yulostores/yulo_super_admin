@@ -271,6 +271,7 @@ export default function PartnersList() {
                 <TableHead>Partner ID</TableHead>
                 <TableHead>Deliveries</TableHead>
                 <TableHead>Gross Earnings</TableHead>
+                <TableHead>Tips</TableHead>
                 <TableHead>Incentives</TableHead>
                 <TableHead>Deductions</TableHead>
                 <TableHead>Net Payable</TableHead>
@@ -318,6 +319,10 @@ export default function PartnersList() {
                     <TableCell>
                       {payout ? formatPrice(payout.grossEarnings) : "—"}
                     </TableCell>
+                    {/* Customers' tips, passed to the rider in full — part of Net Payable. */}
+                    <TableCell>
+                      {payout ? formatPrice(payout.tips ?? 0) : "—"}
+                    </TableCell>
                     <TableCell>
                       {payout ? formatPrice(payout.incentives) : "—"}
                     </TableCell>
@@ -359,7 +364,7 @@ export default function PartnersList() {
               {!isLoading && partners.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={11}
                     className="py-10 text-center text-muted-foreground"
                   >
                     No delivery partners match your filters.
@@ -369,7 +374,7 @@ export default function PartnersList() {
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={11}
                     className="py-10 text-center text-muted-foreground"
                   >
                     Loading…

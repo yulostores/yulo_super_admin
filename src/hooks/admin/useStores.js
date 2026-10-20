@@ -10,6 +10,7 @@ const storeKeys = {
   all: ["admin", "stores"],
   list: (params) => ["admin", "stores", "list", params],
   detail: (id) => ["admin", "stores", "detail", id],
+  payoutAccount: (id) => ["admin", "stores", "payout-account", id],
 };
 
 export function useStores(params = {}) {
@@ -87,4 +88,62 @@ export function useVerifyDocument(id) {
 
 export function useRemoveStore(id) {
   return useStoreAction(id, () => adminApi.removeStore(id));
+}
+
+// ── Bank account ─────────────────────────────────────────────────────────
+
+// The masked account view (never the number). The full number comes only from reveal, which
+// is deliberately not a query: nothing caches it, the card keeps it in local state while its
+// modal is open and drops it on close.
+export function useStorePayoutAccount(id) {
+  return useQuery({
+    queryKey: storeKeys.payoutAccount(id),
+    queryFn: () =>
+      adminApi.getStorePayoutAccount(id).then((r) => r.data.data.account),
+    enabled: !!id,
+    staleTime: 0,
+  });
+}
+
+function usePayoutAccountAction(id, mutationFn) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    // Settled, not success: a 409 ACCOUNT_CHANGED means the owner changed something while
+    // the admin was looking — refetching is how the admin gets to see what changed.
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: storeKeys.payoutAccount(id) });
+      qc.invalidateQueries({ queryKey: storeKeys.detail(id) });
+    },
+  });
+}
+
+export function useVerifyPayoutAccount(id) {
+  return usePayoutAccountAction(id, (submittedAt) =>
+    adminApi.verifyStorePayoutAccount(id, submittedAt),
+  );
+}
+
+export function useRejectPayoutAccount(id) {
+  return usePayoutAccountAction(id, ({ reason, submittedAt }) =>
+    adminApi.rejectStorePayoutAccount(id, reason, submittedAt),
+  );
+}
+
+export function useVerifyPayoutChange(id) {
+  return usePayoutAccountAction(id, (requestedAt) =>
+    adminApi.verifyStorePayoutChange(id, requestedAt),
+  );
+}
+
+export function useRejectPayoutChange(id) {
+  return usePayoutAccountAction(id, ({ reason, requestedAt }) =>
+    adminApi.rejectStorePayoutChange(id, reason, requestedAt),
+  );
+}
+
+export function useRequestPayoutChangeInfo(id) {
+  return usePayoutAccountAction(id, ({ message, requestedAt }) =>
+    adminApi.requestStorePayoutChangeInfo(id, message, requestedAt),
+  );
 }

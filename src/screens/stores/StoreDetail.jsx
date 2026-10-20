@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import EditableCard from "@/components/admin/EditableCard";
+import { useToast } from "@/components/admin/Toaster";
+import StorePayoutAccountCard from "./StorePayoutAccountCard";
 import {
   useApproveStore,
   useAddStoreNote,
@@ -187,6 +190,7 @@ export default function StoreDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: store, isLoading, error } = useStore(id);
+  const toast = useToast();
 
   const approve = useApproveStore(id);
   const reject = useRejectStore(id);
@@ -222,6 +226,9 @@ export default function StoreDetail() {
   const [businessForm, setBusinessForm] = useState({});
   const [editingLicenses, setEditingLicenses] = useState(false);
   const [licensesForm, setLicensesForm] = useState({});
+  // The GST flag lives on the store, not in settings; edited with the GSTIN it depends on.
+  const [gstRegisteredForm, setGstRegisteredForm] = useState(false);
+  const [licensesError, setLicensesError] = useState(null);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({});
 
@@ -260,6 +267,8 @@ export default function StoreDetail() {
     setLocationError(null);
     setBusinessForm(store.settings ?? {});
     setLicensesForm(store.settings ?? {});
+    setGstRegisteredForm(!!store.gstRegistered);
+    setLicensesError(null);
     setProfileForm({
       name: store.name ?? "",
       category: store.category ?? "",
@@ -764,16 +773,60 @@ export default function StoreDetail() {
             title="Licenses & Tax"
             editing={editingLicenses}
             saving={update.isPending}
-            onEdit={() => setEditingLicenses(true)}
-            onCancel={() => setEditingLicenses(false)}
-            onSave={() =>
+            onEdit={() => {
+              setLicensesError(null);
+              setEditingLicenses(true);
+            }}
+            onCancel={() => {
+              setLicensesForm(store.settings ?? {});
+              setGstRegisteredForm(!!store.gstRegistered);
+              setLicensesError(null);
+              setEditingLicenses(false);
+            }}
+            onSave={() => {
+              setLicensesError(null);
+              // Same rule the server enforces (and the owner's form): a GST-registered store
+              // must carry a GSTIN. Food GST is charged on its orders only while this is on.
+              if (gstRegisteredForm && !String(licensesForm.gstNumber ?? "").trim()) {
+                setLicensesError("Enter the GSTIN — a GST-registered store must have one.");
+                return;
+              }
               update.mutate(
-                { settings: { ...store.settings, ...licensesForm } },
-                { onSuccess: () => setEditingLicenses(false) },
-              )
-            }
+                {
+                  gstRegistered: gstRegisteredForm,
+                  settings: { ...store.settings, ...licensesForm },
+                },
+                {
+                  onSuccess: () => {
+                    setEditingLicenses(false);
+                    toast.success("Licenses & tax saved.");
+                  },
+                  onError: (err) => {
+                    setLicensesError(
+                      err.details?.fieldErrors?.["settings.gstNumber"] ?? err.message,
+                    );
+                    toast.error(err, "Could not save licenses & tax.");
+                  },
+                },
+              );
+            }}
             editChildren={
               <>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="store-gst-registered">GST registered</Label>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id="store-gst-registered"
+                      checked={gstRegisteredForm}
+                      onCheckedChange={setGstRegisteredForm}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {gstRegisteredForm
+                        ? "Food GST is charged on this store's orders. A valid GSTIN is required."
+                        : "No food GST is charged on this store's orders."}
+                    </span>
+                  </div>
+                </div>
                 <div className="space-y-1.5">
                   <Label>GST Number</Label>
                   <Input
@@ -823,9 +876,22 @@ export default function StoreDetail() {
                     }
                   />
                 </div>
+                {licensesError ? (
+                  <p className="text-xs font-semibold text-brand-maroon sm:col-span-2">
+                    {licensesError}
+                  </p>
+                ) : null}
               </>
             }
           >
+            <ReadOnlyField
+              label="GST registered"
+              value={
+                store.gstRegistered
+                  ? "Yes — food GST is charged"
+                  : "No — no food GST"
+              }
+            />
             <ReadOnlyField
               label="GST Number"
               value={store.settings?.gstNumber}
@@ -1094,6 +1160,9 @@ export default function StoreDetail() {
         </div>
 
         <div className="space-y-4">
+          {/* Bank account — where this store's payouts are sent */}
+          <StorePayoutAccountCard storeId={store._id} documents={store.documents ?? []} />
+
           {/* Documents */}
           <Card>
             <CardContent className="p-5">

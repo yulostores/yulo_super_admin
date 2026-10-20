@@ -1,7 +1,7 @@
 // Minimal modal for destructive/reason-required admin actions (no radix Dialog
 // dependency in this project yet — kept intentionally small).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,9 @@ export default function ConfirmDialog({
   description,
   requireReason = false,
   reasonLabel = "Reason",
+  reasonPlaceholder = "Explain why…",
+  minReasonLength = 1,
+  children,
   confirmLabel = "Confirm",
   confirmVariant = "default",
   loading = false,
@@ -19,10 +22,15 @@ export default function ConfirmDialog({
   onCancel,
 }) {
   const [reason, setReason] = useState("");
+  // A fresh field every time it opens — reopening used to show the reason typed for the
+  // previous decision, which is how one store's rejection text ended up on another's.
+  useEffect(() => {
+    if (open) setReason("");
+  }, [open]);
 
   if (!open) return null;
 
-  const canConfirm = !requireReason || reason.trim().length > 0;
+  const canConfirm = !requireReason || reason.trim().length >= minReasonLength;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -32,13 +40,15 @@ export default function ConfirmDialog({
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         ) : null}
 
+        {children}
+
         {requireReason ? (
           <div className="mt-4 space-y-1.5">
             <Label>{reasonLabel}</Label>
             <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Explain why…"
+              placeholder={reasonPlaceholder}
               autoFocus
             />
           </div>

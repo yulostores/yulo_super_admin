@@ -28,21 +28,45 @@ export const STORE_STATUS_LABEL = {
 
 export const STORE_PLANS = ["trial", "basic", "standard", "premium"];
 
-// SupportTicket — server/models/SupportTicket.js
-export const TICKET_STATUSES = ["open", "in_progress", "resolved", "closed"];
+// SupportTicket — server/models/SupportTicket.js. Since B12 the server stores and returns
+// open → in_review → (awaiting_restaurant) → resolved; it still accepts the old in_progress /
+// closed on input. awaiting_restaurant is only reached by asking the restaurant for
+// information (Payouts → Payment issues), never set directly — hence TICKET_SETTABLE_STATUSES.
+export const TICKET_STATUSES = [
+  "open",
+  "in_review",
+  "awaiting_restaurant",
+  "resolved",
+];
+export const TICKET_SETTABLE_STATUSES = ["open", "in_review", "resolved"];
+export const TICKET_STATUS_LABEL = {
+  open: "Open",
+  in_review: "In review",
+  awaiting_restaurant: "Awaiting restaurant",
+  resolved: "Resolved",
+  in_progress: "In review",
+  closed: "Resolved",
+};
+export const TICKET_KINDS = [
+  { value: "payment", label: "Payment issues" },
+  { value: "general", label: "General" },
+];
 export const TICKET_PRIORITIES = ["low", "medium", "high"];
 export const TICKET_CATEGORIES = [
   "billing",
   "technical",
   "account",
   "delivery",
+  "payout",
   "other",
 ];
 
 export const TICKET_STATUS_VARIANT = {
   open: "danger",
-  in_progress: "info",
+  in_review: "info",
+  awaiting_restaurant: "warn",
   resolved: "ok",
+  in_progress: "info",
   closed: "muted",
 };
 
