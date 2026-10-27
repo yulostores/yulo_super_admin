@@ -2,7 +2,7 @@
 // the KPI card, the tab strip, the modal shell, the summary / info / warning boxes, the
 // "What the owner sees" card and the four-step progress strip.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -20,6 +20,7 @@ import { Badge } from "./ui";
 import { Button } from "./ui";
 import { Card, CardContent } from "./ui";
 import { cn } from "@/lib/utils";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import {
   ELIGIBILITY,
   OWNER_STATUS_VARIANT,
@@ -171,9 +172,20 @@ export function PayoutModal({
   confirmDisabled = false,
   loading = false,
   danger = false,
+  // Optional second step for the modals whose form decides the money (mark paid, add
+  // adjustment): { title, description, confirmLabel, tone }. Submitting then opens a
+  // ConfirmDialog over the form and onConfirm runs only from its confirm button. `validate`
+  // runs first and can refuse (show the form's own errors) before the review appears.
+  review = null,
+  validate,
   onConfirm,
   onClose,
 }) {
+  const [reviewing, setReviewing] = useState(false);
+  useEffect(() => {
+    if (!open) setReviewing(false);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
@@ -184,6 +196,17 @@ export function PayoutModal({
   }, [open, loading, onClose]);
 
   if (!open) return null;
+
+  function submit() {
+    if (confirmDisabled || loading) return;
+    if (!review) {
+      onConfirm();
+      return;
+    }
+    if (validate && !validate()) return;
+    setReviewing(true);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-pay-ink/40 px-4 font-pay text-pay-ink">
       <form
@@ -192,7 +215,7 @@ export function PayoutModal({
         aria-label={title}
         onSubmit={(e) => {
           e.preventDefault();
-          if (!confirmDisabled && !loading) onConfirm();
+          submit();
         }}
         className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-[20px] bg-white p-8 shadow-pay-modal"
       >
@@ -231,6 +254,26 @@ export function PayoutModal({
           </Button>
         </div>
       </form>
+      {review ? (
+        <ConfirmDialog
+          open={reviewing}
+          title={review.title}
+          description={review.description}
+          confirmLabel={review.confirmLabel}
+          tone={review.tone}
+          loading={loading}
+          onCancel={() => setReviewing(false)}
+          onConfirm={async () => {
+            // onConfirm reports its own errors and closes the modal on success; the
+            // review closes either way, leaving the form open after a failure.
+            try {
+              await onConfirm();
+            } finally {
+              setReviewing(false);
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

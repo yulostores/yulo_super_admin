@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useCustomer, useSetCustomerStatus } from "@/hooks/admin/useCustomers";
+import { useConfirm } from "@/components/admin/useConfirm";
+import { useToast } from "@/components/admin/Toaster";
 import { initials } from "@/lib/format";
 import AdminLayout, { formatDate } from "../AdminLayout";
 
@@ -11,6 +13,8 @@ export default function CustomerDetail() {
   const { id } = useParams();
   const { data: customer, isLoading, error } = useCustomer(id);
   const setStatus = useSetCustomerStatus(id);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   if (isLoading) {
     return (
@@ -29,6 +33,29 @@ export default function CustomerDetail() {
     );
   }
 
+  // Deactivating locks the customer out, so it is confirmed; re-activating restores access
+  // and stays one tap.
+  function toggleActive() {
+    const next = !customer.isActive;
+    const run = () =>
+      setStatus.mutateAsync(next, {
+        onSuccess: () =>
+          toast.success(`${customer.name} ${next ? "activated" : "deactivated"}.`),
+        onError: (err) => toast.error(err, "Could not change the customer's status."),
+      });
+    if (next) {
+      run().catch(() => {});
+      return;
+    }
+    confirm.ask({
+      title: `Deactivate ${customer.name}?`,
+      description: `${customer.name} can no longer sign in or place orders until you activate the account again. Their order history is kept.`,
+      confirmLabel: "Deactivate customer",
+      tone: "danger",
+      onConfirm: run,
+    });
+  }
+
   return (
     <AdminLayout
       breadcrumb="Customer Report > Customer Details"
@@ -38,7 +65,7 @@ export default function CustomerDetail() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setStatus.mutate(!customer.isActive)}
+          onClick={toggleActive}
           disabled={setStatus.isPending}
           className={
             customer.isActive ? "text-brand-maroon" : "text-brand-green"
@@ -96,6 +123,7 @@ export default function CustomerDetail() {
           </CardContent>
         </Card>
       ) : null}
+      {confirm.dialog}
     </AdminLayout>
   );
 }

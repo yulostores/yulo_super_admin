@@ -22,7 +22,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -34,6 +33,8 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import EditableCard from "@/components/admin/EditableCard";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import { useConfirm } from "@/components/admin/useConfirm";
+import { useToast } from "@/components/admin/Toaster";
 import {
   useAdjustPayout,
   useDeliveryPartner,
@@ -58,17 +59,19 @@ import {
   VEHICLE_TYPES,
 } from "@/lib/constants";
 import ReadOnlyField from "@/components/admin/ReadOnlyField";
-import { fileNameOf, initials } from "@/lib/format";
+import { fileNameOf, formatRupees, initials } from "@/lib/format";
 import AdminLayout, {
   formatDate,
   formatNumber,
   formatPrice,
 } from "../AdminLayout";
 
-function PayoutDetails({ partnerId }) {
+function PayoutDetails({ partnerId, partnerName }) {
   const [period, setPeriod] = useState("weekly");
   const { data, isLoading } = usePayouts(partnerId, { period });
   const adjust = useAdjustPayout(partnerId);
+  const confirm = useConfirm();
+  const toast = useToast();
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ incentives: "0", deductions: "0" });
 
@@ -80,17 +83,34 @@ function PayoutDetails({ partnerId }) {
     });
   }
 
-  function save(payoutId) {
-    adjust.mutate(
-      {
-        payoutId,
-        body: {
-          incentives: Number(form.incentives) || 0,
-          deductions: Number(form.deductions) || 0,
-        },
-      },
-      { onSuccess: () => setEditingId(null) },
-    );
+  // Changes what the rider is paid for the period — confirmed with the before/after figures.
+  function save(payout) {
+    const incentives = Number(form.incentives) || 0;
+    const deductions = Number(form.deductions) || 0;
+    const oldIncentives = Number(payout.incentives) || 0;
+    const oldDeductions = Number(payout.deductions) || 0;
+    if (incentives === oldIncentives && deductions === oldDeductions) {
+      setEditingId(null);
+      return;
+    }
+    const delta = incentives - oldIncentives - (deductions - oldDeductions);
+    const newNet = (Number(payout.netPayable) || 0) + delta;
+    confirm.ask({
+      title: `Adjust ${partnerName ?? "this rider"}'s payout?`,
+      description: `${formatDate(payout.periodStart)} – ${formatDate(payout.periodEnd)}: incentives ${formatRupees(oldIncentives)} → ${formatRupees(incentives)}, deductions ${formatRupees(oldDeductions)} → ${formatRupees(deductions)}. Net payable goes from ${formatRupees(payout.netPayable)} to about ${formatRupees(newNet)}. You can adjust it again until it is paid.`,
+      confirmLabel: "Save adjustment",
+      onConfirm: () =>
+        adjust.mutateAsync(
+          { payoutId: payout._id, body: { incentives, deductions } },
+          {
+            onSuccess: () => {
+              setEditingId(null);
+              toast.success("Payout adjusted.");
+            },
+            onError: (err) => toast.error(err, "Could not adjust the payout."),
+          },
+        ),
+    });
   }
 
   return (
@@ -166,7 +186,7 @@ function PayoutDetails({ partnerId }) {
                 <div className="flex items-end gap-2">
                   <button
                     type="button"
-                    onClick={() => save(payout._id)}
+                    onClick={() => save(payout)}
                     disabled={adjust.isPending}
                     className="rounded-lg bg-brand-orange px-3 py-2 text-xs font-semibold text-white"
                   >
@@ -233,17 +253,40 @@ function PayoutDetails({ partnerId }) {
           </p>
         ) : null}
       </CardContent>
+      {confirm.dialog}
     </Card>
   );
 }
 
-function DeliveryAssignments({ partnerId }) {
+function DeliveryAssignments({ partnerId, partnerName }) {
   const { data, isLoading } = usePartnerOrders(partnerId, { limit: 10 });
   const { data: activePartners } = useDeliveryPartners({
     status: "active",
     limit: 50,
   });
   const reassign = useReassignOrderPartner();
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  function askReassign(order, newPartnerId) {
+    const target = (activePartners?.partners ?? []).find(
+      (p) => p._id === newPartnerId,
+    );
+    const targetName = target?.fullName ?? "the selected rider";
+    confirm.ask({
+      title: `Reassign this order to ${targetName}?`,
+      description: `The ${order.restaurantId?.name ?? "restaurant"} order from ${formatDate(order.createdAt)} moves from ${partnerName ?? "this rider"} to ${targetName} immediately. To undo it you would have to reassign it back.`,
+      confirmLabel: "Reassign order",
+      onConfirm: () =>
+        reassign.mutateAsync(
+          { orderId: order._id, partnerId: newPartnerId },
+          {
+            onSuccess: () => toast.success(`Order reassigned to ${targetName}.`),
+            onError: (err) => toast.error(err, "Could not reassign the order."),
+          },
+        ),
+    });
+  }
 
   return (
     <Card>
@@ -280,11 +323,11 @@ function DeliveryAssignments({ partnerId }) {
               </Badge>
               {order.deliveryAssignment?.status !== "delivered" ? (
                 <Select
+                  // Controlled and always empty: picking a rider only opens the confirm,
+                  // so a cancelled pick must not stay shown as if it had happened.
+                  value=""
                   onValueChange={(newPartnerId) =>
-                    reassign.mutate({
-                      orderId: order._id,
-                      partnerId: newPartnerId,
-                    })
+                    askReassign(order, newPartnerId)
                   }
                 >
                   <SelectTrigger className="w-[150px]">
@@ -310,6 +353,7 @@ function DeliveryAssignments({ partnerId }) {
           </p>
         ) : null}
       </CardContent>
+      {confirm.dialog}
     </Card>
   );
 }
@@ -346,23 +390,55 @@ function isImageDoc(doc) {
 // anything other than an outright approval.
 function VerificationPanel({ partnerId, partner }) {
   const verify = useVerifyDeliveryPartner(partnerId);
-  const [pending, setPending] = useState(null); // "reject" | "request_resubmission"
-  const [notes, setNotes] = useState("");
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const current = partner.verificationStatus ?? "pending_documents";
   const approved = current === "approved";
+  const name = partner.fullName ?? "this partner";
 
-  function submit(decision, decisionNotes) {
-    verify.mutate(
-      { decision, notes: decisionNotes },
+  // Every KYC decision goes through a confirm; reject and resubmission also take the note
+  // the server requires (shown to the partner).
+  const decide = (decision, done) => (notes) =>
+    verify.mutateAsync(
+      { decision, notes },
       {
-        onSuccess: () => {
-          setPending(null);
-          setNotes("");
-        },
+        onSuccess: () => toast.success(done),
+        onError: (err) => toast.error(err, "Could not save the KYC decision."),
       },
     );
-  }
+
+  const askApprove = () =>
+    confirm.ask({
+      title: `Approve ${name}'s KYC?`,
+      description: `${name} is marked KYC-approved. Check the documents below first — the decision is logged under your name.`,
+      confirmLabel: "Approve partner",
+      onConfirm: decide("approve", `${name} approved.`),
+    });
+
+  const askReject = () =>
+    confirm.ask({
+      title: `Reject ${name}'s KYC?`,
+      description: `${name} can't take deliveries. The reason is shown to the partner.`,
+      requireReason: true,
+      reasonLabel: "Why is this partner being rejected?",
+      confirmLabel: "Reject partner",
+      tone: "danger",
+      onConfirm: decide("reject", `${name} rejected.`),
+    });
+
+  const askResubmission = () =>
+    confirm.ask({
+      title: `Ask ${name} to resubmit documents?`,
+      description: `${name}'s verification goes back to the partner until they upload again. Your note is shown to them.`,
+      requireReason: true,
+      reasonLabel: "What needs to be resubmitted?",
+      confirmLabel: "Request resubmission",
+      onConfirm: decide(
+        "request_resubmission",
+        `Resubmission requested from ${name}.`,
+      ),
+    });
 
   return (
     <Card>
@@ -396,78 +472,44 @@ function VerificationPanel({ partnerId, partner }) {
           <p className="text-sm text-brand-maroon">{verify.error.message}</p>
         ) : null}
 
-        {pending ? (
-          <div className="space-y-2">
-            <Label>
-              {pending === "reject"
-                ? "Why is this partner being rejected?"
-                : "What needs to be resubmitted?"}
-            </Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setPending(null);
-                  setNotes("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={!notes.trim() || verify.isPending}
-                onClick={() => submit(pending, notes.trim())}
-                className="bg-brand-orange text-white hover:brightness-105"
-              >
-                {verify.isPending ? "Saving…" : "Submit"}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {!approved ? (
-              <Button
-                type="button"
-                size="sm"
-                disabled={verify.isPending}
-                onClick={() => submit("approve")}
-                className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
-              >
-                <CheckCircle2 className="h-4 w-4" /> Approve
-              </Button>
-            ) : null}
-            {current !== "rejected" ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setPending("reject")}
-                className="gap-1.5 text-brand-maroon"
-              >
-                <XCircle className="h-4 w-4" /> Reject
-              </Button>
-            ) : null}
-            {current !== "resubmission_required" ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setPending("request_resubmission")}
-              >
-                Request resubmission
-              </Button>
-            ) : null}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {!approved ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={verify.isPending}
+              onClick={askApprove}
+              className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
+            >
+              <CheckCircle2 className="h-4 w-4" /> Approve
+            </Button>
+          ) : null}
+          {current !== "rejected" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={verify.isPending}
+              onClick={askReject}
+              className="gap-1.5 text-brand-maroon"
+            >
+              <XCircle className="h-4 w-4" /> Reject
+            </Button>
+          ) : null}
+          {current !== "resubmission_required" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={verify.isPending}
+              onClick={askResubmission}
+            >
+              Request resubmission
+            </Button>
+          ) : null}
+        </div>
       </CardContent>
+      {confirm.dialog}
     </Card>
   );
 }
@@ -479,6 +521,8 @@ export default function PartnerDetail() {
   const update = useUpdateDeliveryPartner(id);
   const remove = useRemoveDeliveryPartner();
   const verifyDoc = useVerifyPartnerDocument(id);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const [removeOpen, setRemoveOpen] = useState(false);
   const [editingPersonal, setEditingPersonal] = useState(false);
@@ -520,6 +564,86 @@ export default function PartnerDetail() {
     );
   }
 
+  const name = partner.fullName ?? "this partner";
+
+  // Duty status: active ⇄ busy is routine, but taking a rider off the platform (suspended /
+  // inactive) or bringing one back is confirmed.
+  const OFF = ["suspended", "inactive"];
+  function changeStatus(next) {
+    if (next === partner.status) return;
+    const run = () =>
+      update.mutateAsync(
+        { status: next },
+        {
+          onSuccess: () => toast.success(`${name} is now ${next}.`),
+          onError: (err) => toast.error(err, "Could not change the status."),
+        },
+      );
+    if (!OFF.includes(next) && !OFF.includes(partner.status)) {
+      run().catch(() => {});
+      return;
+    }
+    const goingOff = OFF.includes(next);
+    confirm.ask({
+      title: goingOff
+        ? `${next === "suspended" ? "Suspend" : "Deactivate"} ${name}?`
+        : `Reactivate ${name}?`,
+      description: goingOff
+        ? `${name} stops receiving delivery requests until you set them active again.`
+        : `${name} goes from ${partner.status} to ${next} and can receive delivery requests again. You can suspend them again later.`,
+      confirmLabel: goingOff
+        ? next === "suspended"
+          ? "Suspend partner"
+          : "Deactivate partner"
+        : "Reactivate partner",
+      tone: goingOff ? "danger" : undefined,
+      onConfirm: run,
+    });
+  }
+
+  function askDocument(doc, decision) {
+    const label = DOC_LABELS[doc.type] ?? doc.type;
+    const verifying = decision === "verified";
+    confirm.ask({
+      title: `${verifying ? "Verify" : "Reject"} ${name}'s ${label}?`,
+      description: verifying
+        ? "Marks the document as verified. Check it against the partner's details first."
+        : "Marks the document as rejected, so the partner has to upload it again.",
+      confirmLabel: verifying ? "Verify document" : "Reject document",
+      tone: verifying ? undefined : "danger",
+      onConfirm: () =>
+        verifyDoc.mutateAsync(
+          { docType: doc.type, status: decision },
+          {
+            onSuccess: () =>
+              toast.success(`${label} ${verifying ? "verified" : "rejected"}.`),
+            onError: (err) => toast.error(err, "Could not update the document."),
+          },
+        ),
+    });
+  }
+
+  // Payouts go to this account — confirmed with the account it will be paid to.
+  function askSaveBank() {
+    const last4 = String(bankForm.accountNumber ?? "").slice(-4);
+    confirm.ask({
+      title: `Change ${name}'s payout account?`,
+      description: `Future payouts for ${name} go to ${bankForm.bankName || "the bank"} account ending ${last4 || "—"}${bankForm.ifscCode ? ` (IFSC ${bankForm.ifscCode})` : ""}${bankForm.upiId ? ` / UPI ${bankForm.upiId}` : ""}. Check it against the partner's proof first — money sent to a wrong account is hard to recover.`,
+      confirmLabel: "Save bank details",
+      onConfirm: () =>
+        update.mutateAsync(
+          { bankDetails: bankForm },
+          {
+            onSuccess: () => {
+              setEditingBank(false);
+              toast.success("Bank details saved.");
+            },
+            onError: (err) => toast.error(err, "Could not save the bank details."),
+          },
+        ),
+    });
+  }
+
   return (
     <AdminLayout
       breadcrumb="Delivery Partners > Delivery Partner Details"
@@ -528,7 +652,7 @@ export default function PartnerDetail() {
         <div className="flex items-center gap-2">
           <Select
             value={partner.status}
-            onValueChange={(v) => update.mutate({ status: v })}
+            onValueChange={changeStatus}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue />
@@ -605,8 +729,8 @@ export default function PartnerDetail() {
       </Card>
 
       <VerificationPanel partnerId={id} partner={partner} />
-      <PayoutDetails partnerId={id} />
-      <DeliveryAssignments partnerId={id} />
+      <PayoutDetails partnerId={id} partnerName={partner.fullName} />
+      <DeliveryAssignments partnerId={id} partnerName={partner.fullName} />
 
       <EditableCard
         title="Personal Information"
@@ -894,12 +1018,7 @@ export default function PartnerDetail() {
                       type="button"
                       title="Mark verified"
                       disabled={verifyDoc.isPending}
-                      onClick={() =>
-                        verifyDoc.mutate({
-                          docType: doc.type,
-                          status: "verified",
-                        })
-                      }
+                      onClick={() => askDocument(doc, "verified")}
                       className="grid h-6 w-6 place-items-center rounded-full bg-status-ok-bg text-status-ok disabled:opacity-50"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
@@ -910,12 +1029,7 @@ export default function PartnerDetail() {
                       type="button"
                       title="Reject"
                       disabled={verifyDoc.isPending}
-                      onClick={() =>
-                        verifyDoc.mutate({
-                          docType: doc.type,
-                          status: "rejected",
-                        })
-                      }
+                      onClick={() => askDocument(doc, "rejected")}
                       className="grid h-6 w-6 place-items-center rounded-full bg-status-danger-bg text-brand-maroon disabled:opacity-50"
                     >
                       <XCircle className="h-3.5 w-3.5" />
@@ -941,12 +1055,7 @@ export default function PartnerDetail() {
         saving={update.isPending}
         onEdit={() => setEditingBank(true)}
         onCancel={() => setEditingBank(false)}
-        onSave={() =>
-          update.mutate(
-            { bankDetails: bankForm },
-            { onSuccess: () => setEditingBank(false) },
-          )
-        }
+        onSave={askSaveBank}
         editChildren={
           <>
             <div className="space-y-1.5">
@@ -1070,16 +1179,27 @@ export default function PartnerDetail() {
 
       <ConfirmDialog
         open={removeOpen}
-        title="Remove this delivery partner"
+        title={`Remove ${name} permanently?`}
         description="This permanently deletes the partner record — this cannot be undone."
         confirmLabel="Remove Permanently"
         confirmVariant="destructive"
         loading={remove.isPending}
         onCancel={() => setRemoveOpen(false)}
         onConfirm={() =>
-          remove.mutate(id, { onSuccess: () => navigate("/delivery-partners") })
+          remove.mutate(id, {
+            onSuccess: () => {
+              setRemoveOpen(false);
+              toast.success(`${name} removed.`);
+              navigate("/delivery-partners");
+            },
+            onError: (err) => {
+              setRemoveOpen(false);
+              toast.error(err, "Could not remove the partner.");
+            },
+          })
         }
       />
+      {confirm.dialog}
     </AdminLayout>
   );
 }

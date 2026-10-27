@@ -23,6 +23,8 @@ import {
   TICKET_SETTABLE_STATUSES,
   TICKET_STATUS_LABEL,
 } from "@/lib/constants";
+import { useConfirm } from "@/components/admin/useConfirm";
+import { useToast } from "@/components/admin/Toaster";
 import AdminLayout, { formatDate } from "../AdminLayout";
 
 export default function TicketDetail() {
@@ -30,6 +32,8 @@ export default function TicketDetail() {
   const { data: ticket, isLoading, error } = useTicket(id);
   const update = useUpdateTicket(id);
   const addMessage = useAddTicketMessage(id);
+  const confirm = useConfirm();
+  const toast = useToast();
   const [reply, setReply] = useState("");
 
   if (isLoading) {
@@ -52,6 +56,32 @@ export default function TicketDetail() {
   // Payment issues have their own screen (linked payout, ask-for-information, attachments).
   if (ticket.kind === "payment") {
     return <Navigate to={`/payouts/issues/${ticket._id}`} replace />;
+  }
+
+  // Resolving closes the conversation for the customer and stamps resolvedAt, so it is
+  // confirmed; open ⇄ in review is routine triage and stays one tap.
+  function changeStatus(next) {
+    if (next === ticket.status) return;
+    const run = () =>
+      update.mutateAsync(
+        { status: next },
+        {
+          onSuccess: () =>
+            toast.success(`Ticket marked ${TICKET_STATUS_LABEL[next] ?? next}.`),
+          onError: (err) => toast.error(err, "Could not update the ticket."),
+        },
+      );
+    if (next !== "resolved") {
+      run().catch(() => {});
+      return;
+    }
+    confirm.ask({
+      title: `Resolve "${ticket.subject}"?`,
+      description:
+        "The ticket is marked resolved and the customer sees it as closed. You can reopen it later from this screen if needed.",
+      confirmLabel: "Resolve ticket",
+      onConfirm: run,
+    });
   }
 
   return (
@@ -137,7 +167,7 @@ export default function TicketDetail() {
                 <p className="text-xs text-muted-foreground">Status</p>
                 <Select
                   value={ticket.status}
-                  onValueChange={(v) => update.mutate({ status: v })}
+                  onValueChange={changeStatus}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -187,6 +217,7 @@ export default function TicketDetail() {
           </Card>
         </div>
       </section>
+      {confirm.dialog}
     </AdminLayout>
   );
 }

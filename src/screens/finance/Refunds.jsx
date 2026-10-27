@@ -358,13 +358,13 @@ export default function Refunds() {
       <ConfirmDialog
         open={Boolean(confirming)}
         title={
-          confirming?.refund?.status === "pending"
-            ? "Send this refund?"
-            : "Retry this refund?"
+          confirming
+            ? `${confirming.refund?.status === "pending" ? "Send" : "Retry"} the ${rupees(amountOf(confirming))} refund for ${reference(confirming).text}?`
+            : ""
         }
         description={
           confirming
-            ? `${rupees(amountOf(confirming))} goes back to the customer's original payment method through Razorpay. This can't be undone.`
+            ? `${rupees(amountOf(confirming))}${confirming.restaurantName || names.get(String(confirming.restaurantId)) ? ` (${confirming.restaurantName ?? names.get(String(confirming.restaurantId))})` : ""} goes back to the customer's original payment method through Razorpay. This can't be undone.`
             : ""
         }
         confirmLabel={

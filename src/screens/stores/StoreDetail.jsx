@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import { useConfirm } from "@/components/admin/useConfirm";
 import EditableCard from "@/components/admin/EditableCard";
 import { useToast } from "@/components/admin/Toaster";
 import StorePayoutAccountCard from "./StorePayoutAccountCard";
@@ -201,6 +202,7 @@ export default function StoreDetail() {
   const addNote = useAddStoreNote(id);
   const verifyDoc = useVerifyDocument(id);
   const remove = useRemoveStore(id);
+  const confirm = useConfirm();
 
   // The last few receipts this store issued — the concrete counterpart to the revenue
   // figures on the finance screens. The full, filterable list lives at /bills.
@@ -302,6 +304,50 @@ export default function StoreDetail() {
 
   const status = store.approvalStatus;
 
+  // Toasts for the one-tap status actions, which used to fail silently.
+  const actionHandlers = (done, failed) => ({
+    onSuccess: () => toast.success(done),
+    onError: (err) => toast.error(err, failed),
+  });
+
+  const askApprove = () =>
+    confirm.ask({
+      title: `Approve ${store.name}?`,
+      description:
+        status === "rejected"
+          ? `This overrides the earlier rejection. ${store.name} goes live and customers can order from it straight away. You can suspend it later.`
+          : `${store.name} goes live and customers can order from it straight away. You can suspend it later.`,
+      confirmLabel: "Approve store",
+      onConfirm: () =>
+        approve.mutateAsync(
+          undefined,
+          actionHandlers(`${store.name} approved.`, "Could not approve the store."),
+        ),
+    });
+
+  // A document verdict is final here: the verify/reject buttons only exist while a
+  // document is pending, so there is no way back in the portal once it is decided.
+  const askDocument = (doc, label, decision) => {
+    if (!doc?._id) return;
+    const verifying = decision === "verified";
+    confirm.ask({
+      title: `${verifying ? "Verify" : "Reject"} ${label ?? "this document"} for ${store.name}?`,
+      description: verifying
+        ? "Marks the document as verified. Check it against the store's details first — the portal offers no way to undo this."
+        : "Marks the document as rejected, so the owner has to upload it again. The portal offers no way to undo this.",
+      confirmLabel: verifying ? "Verify document" : "Reject document",
+      tone: verifying ? undefined : "danger",
+      onConfirm: () =>
+        verifyDoc.mutateAsync(
+          { docId: doc._id, status: decision },
+          actionHandlers(
+            `${label ?? "Document"} ${verifying ? "verified" : "rejected"}.`,
+            "Could not update the document.",
+          ),
+        ),
+    });
+  };
+
   return (
     <AdminLayout
       breadcrumb="Store Management > Store Details"
@@ -320,7 +366,7 @@ export default function StoreDetail() {
             <>
               <Button
                 size="sm"
-                onClick={() => approve.mutate()}
+                onClick={askApprove}
                 disabled={approve.isPending}
                 className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
               >
@@ -340,7 +386,20 @@ export default function StoreDetail() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => suspend.mutate()}
+              onClick={() =>
+                confirm.ask({
+                  title: `Suspend ${store.name}?`,
+                  description:
+                    "The store disappears from customer apps and can't take new orders until you reactivate it. Orders already placed are not cancelled.",
+                  confirmLabel: "Suspend store",
+                  tone: "danger",
+                  onConfirm: () =>
+                    suspend.mutateAsync(
+                      undefined,
+                      actionHandlers(`${store.name} suspended.`, "Could not suspend the store."),
+                    ),
+                })
+              }
               disabled={suspend.isPending}
               className="text-brand-maroon"
             >
@@ -350,7 +409,19 @@ export default function StoreDetail() {
           {status === "suspended" ? (
             <Button
               size="sm"
-              onClick={() => reactivate.mutate()}
+              onClick={() =>
+                confirm.ask({
+                  title: `Reactivate ${store.name}?`,
+                  description:
+                    "The store becomes visible to customers again and can take orders straight away. You can suspend it again later.",
+                  confirmLabel: "Reactivate store",
+                  onConfirm: () =>
+                    reactivate.mutateAsync(
+                      undefined,
+                      actionHandlers(`${store.name} reactivated.`, "Could not reactivate the store."),
+                    ),
+                })
+              }
               disabled={reactivate.isPending}
               className="bg-brand-orange text-white hover:brightness-105"
             >
@@ -363,7 +434,7 @@ export default function StoreDetail() {
           {status === "rejected" ? (
             <Button
               size="sm"
-              onClick={() => approve.mutate()}
+              onClick={askApprove}
               disabled={approve.isPending}
               className="gap-1.5 bg-brand-orange text-white hover:brightness-105"
             >
@@ -791,24 +862,54 @@ export default function StoreDetail() {
                 setLicensesError("Enter the GSTIN — a GST-registered store must have one.");
                 return;
               }
-              update.mutate(
-                {
-                  gstRegistered: gstRegisteredForm,
-                  settings: { ...store.settings, ...licensesForm },
-                },
-                {
-                  onSuccess: () => {
-                    setEditingLicenses(false);
-                    toast.success("Licenses & tax saved.");
+              const save = () =>
+                update.mutateAsync(
+                  {
+                    gstRegistered: gstRegisteredForm,
+                    settings: { ...store.settings, ...licensesForm },
                   },
-                  onError: (err) => {
-                    setLicensesError(
-                      err.details?.fieldErrors?.["settings.gstNumber"] ?? err.message,
-                    );
-                    toast.error(err, "Could not save licenses & tax.");
+                  {
+                    onSuccess: () => {
+                      setEditingLicenses(false);
+                      toast.success("Licenses & tax saved.");
+                    },
+                    onError: (err) => {
+                      setLicensesError(
+                        err.details?.fieldErrors?.["settings.gstNumber"] ?? err.message,
+                      );
+                      toast.error(err, "Could not save licenses & tax.");
+                    },
                   },
-                },
-              );
+                );
+              // GST registration and the GSTIN decide whether food GST is charged on every
+              // order and whose GSTIN the invoices carry — confirm those; the licence
+              // numbers alone are ordinary text and save in one tap.
+              const newGstin = String(licensesForm.gstNumber ?? "").trim();
+              const oldGstin = String(store.settings?.gstNumber ?? "").trim();
+              const gstChanged =
+                gstRegisteredForm !== !!store.gstRegistered || newGstin !== oldGstin;
+              if (!gstChanged) {
+                save().catch(() => {});
+                return;
+              }
+              confirm.ask({
+                title: `Change GST details for ${store.name}?`,
+                description: [
+                  gstRegisteredForm !== !!store.gstRegistered
+                    ? gstRegisteredForm
+                      ? "Food GST will be charged on this store's new orders."
+                      : "Food GST will no longer be charged on this store's new orders."
+                    : null,
+                  newGstin !== oldGstin
+                    ? `GSTIN: ${oldGstin || "none"} → ${newGstin || "none"}.`
+                    : null,
+                  "Orders already placed keep their tax. You can change this again later.",
+                ]
+                  .filter(Boolean)
+                  .join(" "),
+                confirmLabel: "Save GST details",
+                onConfirm: save,
+              });
             }}
             editChildren={
               <>
@@ -1225,12 +1326,7 @@ export default function StoreDetail() {
                             <button
                               type="button"
                               title="Verify"
-                              onClick={() =>
-                                verifyDoc.mutate({
-                                  docId: doc._id,
-                                  status: "verified",
-                                })
-                              }
+                              onClick={() => askDocument(doc, label, "verified")}
                               className="grid h-7 w-7 place-items-center rounded-full bg-status-ok-bg text-brand-green"
                             >
                               <CheckCircle2 className="h-4 w-4" />
@@ -1238,12 +1334,7 @@ export default function StoreDetail() {
                             <button
                               type="button"
                               title="Reject"
-                              onClick={() =>
-                                verifyDoc.mutate({
-                                  docId: doc._id,
-                                  status: "rejected",
-                                })
-                              }
+                              onClick={() => askDocument(doc, label, "rejected")}
                               className="grid h-7 w-7 place-items-center rounded-full bg-status-danger-bg text-brand-maroon"
                             >
                               <XCircle className="h-4 w-4" />
@@ -1374,8 +1465,8 @@ export default function StoreDetail() {
 
       <ConfirmDialog
         open={rejectOpen}
-        title="Reject this store"
-        description="This will move the store to Rejected status. Provide a reason — it's shown to the owner."
+        title={`Reject ${store.name}?`}
+        description="The store moves to Rejected and stays hidden from customers. The reason is shown to the owner; you can still approve it later once they fix it."
         requireReason
         reasonLabel="Rejection reason"
         confirmLabel="Reject Store"
@@ -1383,7 +1474,11 @@ export default function StoreDetail() {
         loading={reject.isPending}
         onCancel={() => setRejectOpen(false)}
         onConfirm={(reason) =>
-          reject.mutate(reason, { onSuccess: () => setRejectOpen(false) })
+          reject.mutate(reason, {
+            onSuccess: () => toast.success(`${store.name} rejected.`),
+            onError: (err) => toast.error(err, "Could not reject the store."),
+            onSettled: () => setRejectOpen(false),
+          })
         }
       />
 
@@ -1397,26 +1492,39 @@ export default function StoreDetail() {
         }
         actionsDisabled={verifyDoc.isPending}
         onVerify={() =>
-          verifyDoc.mutate({ docId: viewedDoc?._id, status: "verified" })
+          askDocument(viewedDoc, viewingDoc?.label, "verified")
         }
         onReject={() =>
-          verifyDoc.mutate({ docId: viewedDoc?._id, status: "rejected" })
+          askDocument(viewedDoc, viewingDoc?.label, "rejected")
         }
         onClose={() => setViewingDoc(null)}
       />
 
       <ConfirmDialog
         open={removeOpen}
-        title="Remove this store"
-        description="This soft-deletes the store (sets it inactive). Order and bill history is preserved. This action does not change the approval status."
+        title={`Remove ${store.name}?`}
+        description="This soft-deletes the store (sets it inactive) and takes it off the platform. Order and bill history is preserved, but there is no restore button in the portal. The approval status is not changed."
         confirmLabel="Remove Store"
         confirmVariant="destructive"
         loading={remove.isPending}
+        tone="danger"
         onCancel={() => setRemoveOpen(false)}
         onConfirm={() =>
-          remove.mutate(undefined, { onSuccess: () => navigate("/stores") })
+          remove.mutate(undefined, {
+            onSuccess: () => {
+              setRemoveOpen(false);
+              toast.success(`${store.name} removed.`);
+              navigate("/stores");
+            },
+            onError: (err) => {
+              setRemoveOpen(false);
+              toast.error(err, "Could not remove the store.");
+            },
+          })
         }
       />
+
+      {confirm.dialog}
     </AdminLayout>
   );
 }

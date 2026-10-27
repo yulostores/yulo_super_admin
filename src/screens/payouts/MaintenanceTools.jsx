@@ -183,6 +183,10 @@ function AdjustmentModal({ open, restaurant, onClose }) {
   }
 
   const storeList = stores?.stores ?? stores?.restaurants ?? [];
+  const restaurantName =
+    restaurant?.name ??
+    storeList.find((s) => String(s._id) === restaurantId)?.name ??
+    "this restaurant";
 
   return (
     <PayoutModal
@@ -192,6 +196,13 @@ function AdjustmentModal({ open, restaurant, onClose }) {
       confirmLabel="Add adjustment"
       confirmDisabled={!valid}
       loading={adjust.isPending}
+      // Lands on a statement and can't be edited afterwards — confirm the typed amount.
+      review={{
+        title: `Add a ${rupees(amountPaise)} ${direction} to ${restaurantName}?`,
+        description: `${kind === "penalty" ? "Penalty" : "Correction"} — ${direction === "credit" ? "paid to the restaurant" : "deducted from the restaurant's payout"} on its next statement. Reason: "${note.trim()}". It can't be edited afterwards; only an opposite adjustment undoes it.`,
+        confirmLabel: `Add ${direction}`,
+        tone: direction === "debit" ? "danger" : undefined,
+      }}
       onConfirm={confirm}
       onClose={onClose}
     >

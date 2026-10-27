@@ -9,6 +9,17 @@ export function formatPrice(value) {
   }).format(value ?? 0);
 }
 
+// Rupees to the paisa ("₹12,450.00") — for confirmation copy, where a rounded figure would
+// hide exactly the difference the admin is meant to check.
+export function formatRupees(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0);
+}
+
 export function formatNumber(value) {
   return new Intl.NumberFormat("en-IN").format(value ?? 0);
 }

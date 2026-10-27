@@ -1,5 +1,6 @@
 // Platform Admin shell — light sidebar + top bar. Used by every screen in this app.
 
+import { useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Bell,
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
 import { BRAND_NAME, BRAND_SUFFIX, PORTAL_NAME } from "@/lib/brand";
 import { useAdminAuth } from "@/context/AdminAuthContext";
+import { useConfirm } from "@/components/admin/useConfirm";
 import { useOpenTicketCount } from "@/hooks/admin/useTickets";
 
 const NAV = [
@@ -48,50 +50,76 @@ function UserMenu({ compact = false }) {
   const name = user?.name ?? PORTAL_NAME;
   const email = user?.email ?? "";
 
+  const confirm = useConfirm();
+  // Set when Logout is picked, so the menu doesn't pull focus back to its trigger and away
+  // from the confirm's Cancel button as it closes.
+  const askingRef = useRef(false);
+
   async function handleLogout() {
     await logout();
     navigate("/login", { replace: true });
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "flex w-full items-center gap-2.5 rounded-xl border border-brand-cream/70 bg-white px-2.5 py-2 text-left transition hover:bg-brand-cream/20",
-            compact &&
-              "border-0 bg-transparent px-1.5 py-1 hover:bg-brand-cream/30",
-          )}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-xl border border-brand-cream/70 bg-white px-2.5 py-2 text-left transition hover:bg-brand-cream/20",
+              compact &&
+                "border-0 bg-transparent px-1.5 py-1 hover:bg-brand-cream/30",
+            )}
+          >
+            <Avatar className="h-9 w-9">
+              <AvatarFallback className="bg-brand-orange text-xs font-semibold text-white">
+                {initials(name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-sm font-semibold">{name}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {PORTAL_NAME}
+              </p>
+            </div>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-56"
+          onCloseAutoFocus={(e) => {
+            if (askingRef.current) {
+              e.preventDefault();
+              askingRef.current = false;
+            }
+          }}
         >
-          <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-brand-orange text-xs font-semibold text-white">
-              {initials(name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-semibold">{name}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {PORTAL_NAME}
-            </p>
+          <div className="px-2 py-1.5">
+            <p className="text-sm font-semibold">{name}</p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
           </div>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <div className="px-2 py-1.5">
-          <p className="text-sm font-semibold">{name}</p>
-          <p className="truncate text-xs text-muted-foreground">{email}</p>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={handleLogout}
-          className="gap-2 text-brand-maroon"
-        >
-          <LogOut className="h-4 w-4" /> Logout
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            // Asked from the menu item: the dropdown closes, the confirm opens in its place.
+            onSelect={() => {
+              askingRef.current = true;
+              confirm.ask({
+                title: "Log out of the admin portal?",
+                description: `You'll be signed out${email ? ` as ${email}` : ""} and need your password to sign in again. Unsaved edits on this page are lost.`,
+                confirmLabel: "Log out",
+                onConfirm: handleLogout,
+              });
+            }}
+            className="gap-2 text-brand-maroon"
+          >
+            <LogOut className="h-4 w-4" /> Logout
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {confirm.dialog}
+    </>
   );
 }
 

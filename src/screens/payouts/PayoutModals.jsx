@@ -296,6 +296,17 @@ export function MarkPaidModal({ open, data, onClose }) {
       subtitle={subtitleOf(data, rupees(data.settlement.totals?.netPayable))}
       confirmLabel="Save and mark as paid"
       loading={markPaid.isPending}
+      // Paid is final and the restaurant sees it at once — review the typed reference and
+      // date against the amount before it is saved.
+      validate={() => {
+        setTouched(true);
+        return !referenceMissing && !dateError;
+      }}
+      review={{
+        title: `Mark ${rupees(data.settlement.totals?.netPayable)} to ${data.restaurant?.name ?? "this restaurant"} as paid?`,
+        description: `Bank reference ${reference.trim() || "—"}, credited ${credited ? dayMonthYearOfIso(credited) : "—"}. The restaurant sees Paid with this reference immediately, and a paid payout can't be reopened — check it against your bank record.`,
+        confirmLabel: "Mark as paid",
+      }}
       onConfirm={confirm}
       onClose={onClose}
     >

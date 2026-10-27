@@ -33,6 +33,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import PaginationBar from "@/components/admin/PaginationBar";
+import { useConfirm } from "@/components/admin/useConfirm";
+import { useToast } from "@/components/admin/Toaster";
 import { usePagination } from "@/hooks/admin/usePagination";
 import { useDebouncedValue } from "@/hooks/admin/useDebouncedValue";
 import {
@@ -45,7 +47,7 @@ import {
   PARTNER_STATUSES,
   PAYOUT_STATUS_VARIANT,
 } from "@/lib/constants";
-import { initials, partnerCode } from "@/lib/format";
+import { formatRupees, initials, partnerCode } from "@/lib/format";
 import AdminLayout, {
   formatDate,
   formatNumber,
@@ -85,6 +87,8 @@ export default function PartnersList() {
   });
   const { data: payoutSummary } = usePayoutSummary(period);
   const markPaid = useMarkPayoutsPaid();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const payoutByPartnerId = useMemo(() => {
     const map = new Map();
@@ -96,12 +100,29 @@ export default function PartnersList() {
 
   const periodPayout = payoutSummary?.payouts?.[0];
 
+  // Marks every unpaid rider payout of the period paid — money the riders are then told
+  // they have received, so it is confirmed with the count, the total and the period.
   function handleClearPendingPayments() {
-    const pendingIds = (payoutSummary?.payouts ?? [])
-      .filter((p) => p.status !== "paid")
-      .map((p) => p._id);
-    if (pendingIds.length === 0) return;
-    markPaid.mutate(pendingIds);
+    const pending = (payoutSummary?.payouts ?? []).filter(
+      (p) => p.status !== "paid",
+    );
+    if (pending.length === 0) return;
+    const total = pending.reduce((sum, p) => sum + (Number(p.netPayable) || 0), 0);
+    const count = `${pending.length} rider payout${pending.length === 1 ? "" : "s"}`;
+    confirm.ask({
+      title: `Mark ${count} (${formatRupees(total)}) as paid?`,
+      description: `Every unpaid rider payout for ${formatPayoutRange(payoutSummary?.periodStart, payoutSummary?.periodEnd)} is recorded as paid. Only do this after the money has actually been sent — it can't be undone from the portal.`,
+      confirmLabel: `Mark ${formatRupees(total)} paid`,
+      tone: "danger",
+      onConfirm: () =>
+        markPaid.mutateAsync(
+          pending.map((p) => p._id),
+          {
+            onSuccess: () => toast.success(`${count} marked paid.`),
+            onError: (err) => toast.error(err, "Could not mark the payouts paid."),
+          },
+        ),
+    });
   }
 
   return (
@@ -394,6 +415,7 @@ export default function PartnersList() {
         pageSize={limit}
         onPageSizeChange={setLimit}
       />
+      {confirm.dialog}
     </AdminLayout>
   );
 }
