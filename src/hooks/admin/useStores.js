@@ -32,7 +32,12 @@ export function useCreateStore() {
 export function useStore(id) {
   return useQuery({
     queryKey: storeKeys.detail(id),
-    queryFn: () => adminApi.getStore(id).then((r) => r.data.data.store),
+    // `liveActivity` ({ serverEnabled }) rides along on the store for the Live customer activity card.
+    queryFn: () =>
+      adminApi.getStore(id).then((r) => {
+        const { store, liveActivity } = r.data.data;
+        return liveActivity ? { ...store, liveActivity } : store;
+      }),
     enabled: !!id,
   });
 }
@@ -62,6 +67,13 @@ export function useSuspendStore(id) {
 
 export function useReactivateStore(id) {
   return useStoreAction(id, () => adminApi.reactivateStore(id));
+}
+
+// Live customer activity on / off for this store (`enabled` is the new state).
+export function useSetStoreLiveActivity(id) {
+  return useStoreAction(id, (enabled) =>
+    adminApi.setStoreLiveActivity(id, enabled),
+  );
 }
 
 export function useUpdateStore(id) {

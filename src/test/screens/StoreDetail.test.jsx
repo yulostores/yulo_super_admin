@@ -28,6 +28,7 @@ vi.mock("@/hooks/admin/useStores", () => ({
   useAddStoreNote: () => m.addNote,
   useVerifyDocument: () => m.verifyDoc,
   useRemoveStore: () => m.remove,
+  useSetStoreLiveActivity: () => m.liveActivity,
 }));
 
 import StoreDetail from "@/screens/stores/StoreDetail";
@@ -68,6 +69,7 @@ beforeEach(() => {
     "addNote",
     "verifyDoc",
     "remove",
+    "liveActivity",
   ])
     m[k] = mockMutation();
 });
@@ -141,5 +143,73 @@ describe("StoreDetail — approve and documents", () => {
       { docId: "doc1", status: "verified" },
       expect.any(Object),
     );
+  });
+});
+
+describe("StoreDetail — live customer activity", () => {
+  it("is off by default and turns on only after confirm", async () => {
+    const user = userEvent.setup();
+    renderStore({ liveActivity: { serverEnabled: true } });
+    const toggle = screen.getByRole("switch", { name: "Off for this store" });
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+    expect(m.liveActivity.mutateAsync).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Turn on live customer activity for Spice Garden?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+    expect(m.liveActivity.mutateAsync).toHaveBeenCalledWith(
+      true,
+      expect.any(Object),
+    );
+    expect(
+      await screen.findByText("Live customer activity is on for Spice Garden."),
+    ).toBeInTheDocument();
+  });
+
+  it("turns off after confirm, and cancel changes nothing", async () => {
+    const user = userEvent.setup();
+    renderStore({
+      liveActivityEnabled: true,
+      liveActivity: { serverEnabled: true },
+    });
+    const toggle = screen.getByRole("switch", { name: "On for this store" });
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(m.liveActivity.mutateAsync).not.toHaveBeenCalled();
+
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: "Turn off" }));
+    expect(m.liveActivity.mutateAsync).toHaveBeenCalledWith(
+      false,
+      expect.any(Object),
+    );
+  });
+
+  it("says so when the server-wide switch is off", () => {
+    renderStore({
+      liveActivityEnabled: true,
+      liveActivity: { serverEnabled: false },
+    });
+    expect(screen.getByText(/switched off on the server/)).toBeInTheDocument();
+  });
+
+  it("shows the error when the change fails", async () => {
+    const user = userEvent.setup();
+    m.liveActivity.mutateAsync.mockImplementation(async (_v, opts) => {
+      const err = new Error("Store not found");
+      opts?.onError?.(err);
+      throw err;
+    });
+    renderStore({ liveActivity: { serverEnabled: true } });
+    await user.click(
+      screen.getByRole("switch", { name: "Off for this store" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Turn on" }));
+    expect(await screen.findByText("Store not found")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });

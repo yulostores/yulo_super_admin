@@ -14,6 +14,7 @@ import { useConfirm } from "@/components/admin/useConfirm";
 import EditableCard from "@/components/admin/EditableCard";
 import { useToast } from "@/components/admin/Toaster";
 import StorePayoutAccountCard from "./StorePayoutAccountCard";
+import StoreLiveActivityCard from "./StoreLiveActivityCard";
 import {
   useApproveStore,
   useAddStoreNote,
@@ -1263,6 +1264,9 @@ export default function StoreDetail() {
         <div className="space-y-4">
           {/* Bank account — where this store's payouts are sent */}
           <StorePayoutAccountCard storeId={store._id} documents={store.documents ?? []} />
+
+          {/* Live customer activity — a super admin turns it on per store */}
+          <StoreLiveActivityCard store={store} />
 
           {/* Documents */}
           <Card>

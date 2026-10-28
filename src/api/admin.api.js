@@ -38,6 +38,9 @@ export const adminApi = {
   suspendStore: (id) => client.patch(`/admin/stores/${id}/suspend`),
   reactivateStore: (id) => client.patch(`/admin/stores/${id}/reactivate`),
   updateStore: (id, body) => client.patch(`/admin/stores/${id}`, body),
+  // Live customer activity for this store — on top of the server-wide LIVE_ACTIVITY_ENABLED.
+  setStoreLiveActivity: (id, enabled) =>
+    client.patch(`/admin/stores/${id}/live-activity`, { enabled }),
   // The map point on its own. With no body the server re-geocodes the stored address and
   // 400s if it can't place it — unlike the address-edit path, which is best-effort.
   updateStoreLocation: (id, coordinates) =>
