@@ -11,6 +11,7 @@
 //     of another modal (a PayoutModal, the document viewer) closes only itself.
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -87,7 +88,11 @@ export default function ConfirmDialog({
     !confirmDisabled &&
     (!requireReason || reason.trim().length >= minReasonLength);
 
-  return (
+  // Portaled to <body>: a confirm asked from inside a positioned container — the sticky
+  // sidebar's Logout above all — was otherwise trapped in that container's stacking context,
+  // and the page beside it (the dashboard's chart and its tooltip) painted over the dialog and
+  // its buttons, whatever this z-index said.
+  return createPortal(
     <div
       className="fixed inset-0 z-[55] flex items-center justify-center bg-black/40 px-4"
       // Backdrop click cancels, but not a click (or text selection) that started inside.
@@ -153,6 +158,7 @@ export default function ConfirmDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
