@@ -25,6 +25,7 @@ vi.mock("@/hooks/admin/useDeliveryPartners", () => ({
   usePayouts: () => ({ data: { rows: [] }, isLoading: false }),
   usePayoutSummary: () => ({ data: m.summary }),
   useAdjustPayout: () => m.adjust,
+  useMarkOrderDelivered: () => m.markDelivered,
   useReassignOrderPartner: () => m.reassign,
   useRemoveDeliveryPartner: () => m.remove,
   useUpdateDeliveryPartner: () => m.update,
@@ -39,6 +40,7 @@ import PartnersList from "@/screens/deliveryPartners/PartnersList";
 beforeEach(() => {
   for (const k of [
     "adjust",
+    "markDelivered",
     "reassign",
     "remove",
     "update",

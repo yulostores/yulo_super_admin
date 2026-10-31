@@ -41,6 +41,7 @@ import {
   useDeliveryPartners,
   usePartnerOrders,
   usePayouts,
+  useMarkOrderDelivered,
   useReassignOrderPartner,
   useRemoveDeliveryPartner,
   useUpdateDeliveryPartner,
@@ -265,6 +266,7 @@ function DeliveryAssignments({ partnerId, partnerName }) {
     limit: 50,
   });
   const reassign = useReassignOrderPartner();
+  const markDelivered = useMarkOrderDelivered();
   const confirm = useConfirm();
   const toast = useToast();
 
@@ -283,6 +285,26 @@ function DeliveryAssignments({ partnerId, partnerName }) {
           {
             onSuccess: () => toast.success(`Order reassigned to ${targetName}.`),
             onError: (err) => toast.error(err, "Could not reassign the order."),
+          },
+        ),
+    });
+  }
+
+  // The support fallback for the customer's delivery code: the rider has the food but can't
+  // close the order (customer unreachable, or locked out after wrong codes).
+  function askMarkDelivered(order) {
+    confirm.ask({
+      title: "Mark this order delivered?",
+      description: `Only when you have confirmed the ${order.restaurantId?.name ?? "restaurant"} order reached the customer — the rider couldn't close it with the customer's delivery code. The restaurant is credited and the rider paid as for any delivery. Your reason is logged.`,
+      requireReason: true,
+      reasonLabel: "How was the delivery confirmed?",
+      confirmLabel: "Mark delivered",
+      onConfirm: (reason) =>
+        markDelivered.mutateAsync(
+          { orderId: order._id, reason },
+          {
+            onSuccess: () => toast.success("Order marked delivered."),
+            onError: (err) => toast.error(err, "Could not mark the order delivered."),
           },
         ),
     });
@@ -321,6 +343,11 @@ function DeliveryAssignments({ partnerId, partnerName }) {
               >
                 {order.deliveryAssignment?.status?.replace(/_/g, " ")}
               </Badge>
+              {order.deliveryAssignment?.status === "picked_up" ? (
+                <Button size="sm" variant="outline" onClick={() => askMarkDelivered(order)}>
+                  Mark delivered
+                </Button>
+              ) : null}
               {order.deliveryAssignment?.status !== "delivered" ? (
                 <Select
                   // Controlled and always empty: picking a rider only opens the confirm,

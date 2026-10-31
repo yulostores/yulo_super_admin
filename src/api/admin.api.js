@@ -117,6 +117,10 @@ export const adminApi = {
     client.get("/admin/delivery-partners/payouts/summary", {
       params: { period },
     }),
+  // Support closing a delivery the rider couldn't (customer unreachable for the delivery code, or
+  // the rider locked out after wrong codes). Only for an order the rider has collected.
+  markOrderDelivered: (orderId, reason) =>
+    client.patch(`/admin/orders/${orderId}/mark-delivered`, { reason }),
   reassignOrderPartner: (orderId, partnerId, reason) =>
     client.patch(`/admin/orders/${orderId}/delivery-partner`, {
       partnerId,

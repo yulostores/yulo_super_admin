@@ -117,6 +117,17 @@ export function useReassignOrderPartner() {
   });
 }
 
+export function useMarkOrderDelivered() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, reason }) => adminApi.markOrderDelivered(orderId, reason),
+    onSuccess: () =>
+      qc.invalidateQueries({
+        queryKey: ["admin", "delivery-partners", "orders"],
+      }),
+  });
+}
+
 export function useVerifyDeliveryPartner(id) {
   const qc = useQueryClient();
   return useMutation({
