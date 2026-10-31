@@ -315,7 +315,7 @@ export default function PartnersList() {
                         </Avatar>
                         <div>
                           <p className="font-semibold">{p.fullName}</p>
-                          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             {p.phone}
                             <Badge
                               variant={
@@ -325,7 +325,7 @@ export default function PartnersList() {
                             >
                               {p.status}
                             </Badge>
-                          </p>
+                          </div>
                         </div>
                       </div>
                     </TableCell>

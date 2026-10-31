@@ -26,6 +26,7 @@ import {
 import { useConfirm } from "@/components/admin/useConfirm";
 import { useToast } from "@/components/admin/Toaster";
 import AdminLayout, { formatDate } from "../AdminLayout";
+import { formatPrice } from "@/lib/format";
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -100,6 +101,50 @@ export default function TicketDetail() {
               <p className="text-sm">{ticket.description}</p>
             </CardContent>
           </Card>
+
+          {ticket.raisedByUser || ticket.order ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <h2 className="text-base font-bold">Customer &amp; order</h2>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {ticket.raisedByUser ? (
+                  <div className="flex flex-wrap gap-x-6 gap-y-1">
+                    <span className="font-medium">{ticket.raisedByUser.name || "No name on file"}</span>
+                    {ticket.raisedByUser.phone ? <span>{ticket.raisedByUser.phone}</span> : null}
+                    {ticket.raisedByUser.email ? (
+                      <span className="text-muted-foreground">{ticket.raisedByUser.email}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {ticket.order ? (
+                  <div className="rounded-xl border border-brand-cream/60 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold">
+                        #{ticket.order.ref} · {ticket.order.restaurant?.name ?? "Restaurant"}
+                      </span>
+                      <Badge variant="muted" className="capitalize">
+                        {String(ticket.order.status).replace(/_/g, " ")}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-muted-foreground">
+                      {(ticket.order.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(", ")}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      {formatPrice(ticket.order.grandTotal)} · {ticket.order.paymentStatus}
+                      {ticket.order.refundStatus && ticket.order.refundStatus !== "none"
+                        ? ` · refund ${ticket.order.refundStatus}`
+                        : ""}
+                      {" · "}
+                      {ticket.order.deliveredAt
+                        ? `delivered ${formatDate(ticket.order.deliveredAt)}`
+                        : `placed ${formatDate(ticket.order.createdAt)}`}
+                    </p>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader className="pb-3">
@@ -202,7 +247,7 @@ export default function TicketDetail() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Category</span>
                 <Badge variant="muted" className="capitalize">
-                  {ticket.category}
+                  {String(ticket.category ?? "").replace(/_/g, " ")}
                 </Badge>
               </div>
               {ticket.resolvedAt ? (
