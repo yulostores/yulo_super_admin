@@ -3,7 +3,9 @@
 import { useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
+  Banknote,
   Bell,
+  CalendarCheck,
   ChevronDown,
   CreditCard,
   Headset,
@@ -35,6 +37,9 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/stores", label: "Store Management", icon: Store },
   { to: "/finance", label: "Financial Analytics", icon: TrendingUp },
+  // Every order with its money split, and the week's payouts to restaurants and riders.
+  { to: "/money", label: "Orders & Money", icon: Banknote },
+  { to: "/weekly-report", label: "Weekly Report", icon: CalendarCheck },
   // The receipts behind the revenue figures on the finance screens.
   { to: "/bills", label: "Bills", icon: ReceiptText },
   { to: "/customers", label: "Customer Report", icon: Users },

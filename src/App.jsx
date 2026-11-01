@@ -6,6 +6,8 @@ import AdminDashboard from "./screens/AdminDashboard";
 import FinancialAnalytics from "./screens/finance/FinancialAnalytics";
 import FinanceSettings from "./screens/finance/FinanceSettings";
 import Refunds from "./screens/finance/Refunds";
+import OrdersMoney from "./screens/money/OrdersMoney";
+import WeeklyReport from "./screens/money/WeeklyReport";
 import BillsList from "./screens/bills/BillsList";
 import BillDetail from "./screens/bills/BillDetail";
 import StoresList from "./screens/stores/StoresList";
@@ -87,6 +89,22 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/money"
+        element={
+          <AdminRoute>
+            <OrdersMoney />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/weekly-report"
+        element={
+          <AdminRoute>
+            <WeeklyReport />
+          </AdminRoute>
+        }
+      />
       <Route
         path="/bills"
         element={
