@@ -207,7 +207,7 @@ export default function WeeklyReport() {
             </TableHeader>
             <TableBody>
               {(data?.restaurants ?? []).map((r) => (
-                <TableRow key={r.settlementId}>
+                <TableRow key={r.settlementId ?? `live-${r.restaurant._id}`}>
                   <TableCell className="font-semibold">{r.restaurant.name ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.orders}</TableCell>
                   <TableCell className="text-xs">
@@ -218,7 +218,14 @@ export default function WeeklyReport() {
                     {paise(r.netPayablePaise)}
                   </TableCell>
                   <TableCell>
-                    {r.transfer.status === "paid" ? (
+                    {r.live ? (
+                      <div className="text-xs">
+                        <Badge variant="info">In progress</Badge>
+                        <p className="mt-1 text-muted-foreground">
+                          {r.projectedPaise ? `+ ${paise(r.projectedPaise)} est. from orders in progress · ` : ""}Mark paid after the week&apos;s statement
+                        </p>
+                      </div>
+                    ) : r.transfer.status === "paid" ? (
                       <PaidCell paidAt={r.transfer.paidAt} reference={r.transfer.reference} />
                     ) : (
                       <Badge variant={r.status === "on_hold" ? "warn" : "muted"}>
@@ -237,8 +244,12 @@ export default function WeeklyReport() {
                           Mark paid
                         </Button>
                       ) : null}
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/payouts/${r.settlementId}`)}>
-                        Details
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(r.live ? `/money?restaurantId=${r.restaurant._id}` : `/payouts/${r.settlementId}`)}
+                      >
+                        {r.live ? "Orders" : "Details"}
                       </Button>
                     </div>
                   </TableCell>
