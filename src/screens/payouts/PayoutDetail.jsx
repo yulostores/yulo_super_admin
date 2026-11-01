@@ -67,7 +67,7 @@ import {
 } from "./parts";
 
 const ORIGIN = {
-  weekly: { label: "Weekly batch", to: "/payouts" },
+  weekly: { label: "Weekly batch", to: "/payouts?tab=weekly" },
   history: { label: "Payout history", to: "/payouts?tab=history" },
   clearance: { label: "Clearance queue", to: "/payouts?tab=clearance" },
   issues: { label: "Payment issues", to: "/payouts/issues" },

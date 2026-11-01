@@ -156,8 +156,21 @@ export const adminApi = {
   addTicketMessage: (id, text) =>
     client.post(`/admin/tickets/${id}/messages`, { text }),
 
+  // ── Orders & Money / Weekly Report ───────────────────────────────────
+  // Every order and dine-in bill with its money split (paise), and one week's payouts to clear.
+  getMoney: (params = {}) => client.get("/admin/finance/money", { params }),
+  getWeeklyReport: (weekStart) =>
+    client.get("/admin/finance/weekly-report", { params: weekStart ? { weekStart } : {} }),
+  payRestaurantFromReport: (settlementId, body) =>
+    client.post(`/admin/finance/weekly-report/restaurants/${settlementId}/mark-paid`, body),
+  payRiderFromReport: (payoutId, body) =>
+    client.post(`/admin/finance/weekly-report/riders/${payoutId}/mark-paid`, body),
+
   // ── Restaurant payouts (B12 — manual release, two status axes) ───────
   // Every action is a conditional server-side step: a stale screen gets 409 and refetches.
+  // This week's orders per restaurant as they happen (the Payouts page's Live tab).
+  getPayoutsLive: (weekStart) =>
+    client.get("/admin/finance/payouts/live", { params: weekStart ? { weekStart } : {} }),
   getPayoutsWeekly: (weekStart) =>
     client.get("/admin/finance/payouts/weekly", {
       params: weekStart ? { weekStart } : {},

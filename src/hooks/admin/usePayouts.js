@@ -112,3 +112,15 @@ export const useAddSettlementAdjustment = () =>
   usePayoutAction((body) =>
     adminApi.addSettlementAdjustment(body).then((r) => r.data.data),
   );
+
+// The Live tab: refetched every 30 s and on window focus, so new orders show without a reload.
+export function useLivePayouts(weekStart) {
+  return useQuery({
+    queryKey: ["admin", "payouts", "live", weekStart ?? "this"],
+    queryFn: () => adminApi.getPayoutsLive(weekStart).then((r) => r.data.data),
+    placeholderData: keepPreviousData,
+    staleTime: 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}

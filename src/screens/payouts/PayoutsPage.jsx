@@ -62,6 +62,7 @@ import {
 } from "@/lib/payouts";
 import AdminLayout from "../AdminLayout";
 import { MoreMenu } from "./MaintenanceTools";
+import LiveTab from "./LiveTab";
 import {
   Banner,
   EligibilityBadge,
@@ -877,12 +878,13 @@ function BankRequestsTab() {
   );
 }
 
-const TABS = ["weekly", "clearance", "history", "bank"];
+// Live is the landing tab: the week's orders as they happen; statements are on Weekly batch.
+const TABS = ["live", "weekly", "clearance", "history", "bank"];
 
 export default function PayoutsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab = TABS.includes(params.get("tab")) ? params.get("tab") : "weekly";
+  const tab = TABS.includes(params.get("tab")) ? params.get("tab") : "live";
   const weekStart = params.get("week") ?? undefined;
   const weekly = usePayoutsWeekly(weekStart);
   const { data: issueCounts } = usePaymentIssueCounts();
@@ -906,7 +908,8 @@ export default function PayoutsPage() {
   };
 
   const tabs = [
-    { key: "weekly", label: "Weekly batch", to: "/payouts" },
+    { key: "live", label: "Live · this week", to: "/payouts" },
+    { key: "weekly", label: "Weekly batch", to: "/payouts?tab=weekly" },
     {
       key: "clearance",
       label: "Clearance queue",
@@ -924,7 +927,7 @@ export default function PayoutsPage() {
 
   const data = weekly.data;
   const goWeek = (n) =>
-    data && setParams({ week: isoDay(shiftWeek(data.periodStart, n)) });
+    data && setParams({ tab: "weekly", week: isoDay(shiftWeek(data.periodStart, n)) });
   const firstScheduled = data?.rows?.find(
     (r) => r.transfer?.status === "scheduled",
   );
@@ -1004,6 +1007,7 @@ export default function PayoutsPage() {
       mainClassName="pay-scope gap-6"
     >
       <PayoutTabs tabs={tabs} active={tab} />
+      {tab === "live" ? <LiveTab /> : null}
       {tab === "weekly" ? (
         <WeeklyTab
           data={weekly.data}
