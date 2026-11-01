@@ -27,7 +27,7 @@ import { paise } from "./OrdersMoney";
 
 const REF_RULES = { requireReason: true, minReasonLength: 4, reasonLabel: "Bank / UPI reference (UTR)", reasonPlaceholder: "e.g. 412345678901" };
 
-function SummaryCard({ icon: Icon, title, owed, owedCount, paid, paidCount, tone }) {
+function SummaryCard({ icon: Icon, title, owed, owedCount, paid, paidCount, tone, note }) {
   return (
     <Card>
       <CardContent className="space-y-2 p-4">
@@ -46,6 +46,7 @@ function SummaryCard({ icon: Icon, title, owed, owedCount, paid, paidCount, tone
             <p className="text-[11px] text-muted-foreground">{paidCount} paid</p>
           </div>
         </div>
+        {note ? <p className="border-t border-brand-cream/60 pt-2 text-[11px] text-muted-foreground">{note}</p> : null}
       </CardContent>
     </Card>
   );
@@ -161,7 +162,26 @@ export default function WeeklyReport() {
             </p>
           </CardContent>
         </Card>
-        <SummaryCard icon={Store} title="Restaurants" tone="text-brand-orange" owed={s?.restaurants.owedPaise} owedCount={s?.restaurants.owedCount ?? 0} paid={s?.restaurants.paidPaise} paidCount={s?.restaurants.paidCount ?? 0} />
+        <SummaryCard
+          icon={Store}
+          title="Restaurants"
+          tone="text-brand-orange"
+          owed={s?.restaurants.owedPaise}
+          owedCount={s?.restaurants.owedCount ?? 0}
+          paid={s?.restaurants.paidPaise}
+          paidCount={s?.restaurants.paidCount ?? 0}
+          note={
+            !data
+              ? null
+              : s?.restaurants.owesYuloCount
+                ? `${s.restaurants.owesYuloCount} restaurant${s.restaurants.owesYuloCount === 1 ? "" : "s"} owe Yulo ${paise(s.restaurants.owesYuloPaise)} this week (counter-paid bills / refund fees) — carried to next week's statement, nothing to pay.`
+                : s?.restaurants.statements === 0
+                  ? data.weekEnded
+                    ? "No statement for this week yet — they are made every Monday 03:00 IST (or use Generate)."
+                    : "This week is still running — statements are made after it ends."
+                  : null
+          }
+        />
         <SummaryCard icon={Bike} title="Delivery partners" tone="text-blue-700" owed={s?.riders.owedPaise} owedCount={s?.riders.owedCount ?? 0} paid={s?.riders.paidPaise} paidCount={s?.riders.paidCount ?? 0} />
       </div>
 
@@ -201,7 +221,13 @@ export default function WeeklyReport() {
                     {r.transfer.status === "paid" ? (
                       <PaidCell paidAt={r.transfer.paidAt} reference={r.transfer.reference} />
                     ) : (
-                      <Badge variant={r.status === "on_hold" ? "warn" : "muted"}>{r.status === "on_hold" ? "On hold" : r.transfer.label}</Badge>
+                      <Badge variant={r.status === "on_hold" ? "warn" : "muted"}>
+                      {r.carriedForwardPaise > 0 || r.netPayablePaise < 0
+                        ? `Owes Yulo ${paise(r.carriedForwardPaise + Math.max(0, -r.netPayablePaise))} · carried forward`
+                        : r.status === "on_hold"
+                          ? "On hold"
+                          : r.transfer.label}
+                    </Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
