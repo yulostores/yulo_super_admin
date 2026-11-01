@@ -174,7 +174,7 @@ export default function WeeklyReport() {
             !data
               ? null
               : s?.restaurants.owesYuloCount
-                ? `${s.restaurants.owesYuloCount} restaurant${s.restaurants.owesYuloCount === 1 ? "" : "s"} owe Yulo ${paise(s.restaurants.owesYuloPaise)} this week (counter-paid bills / refund fees) — carried to next week's statement, nothing to pay.`
+                ? `${s.restaurants.owesYuloCount} restaurant${s.restaurants.owesYuloCount === 1 ? "" : "s"} owe Yulo ${paise(s.restaurants.owesYuloPaise)} ${data.weekEnded ? " this week" : " so far"} (counter-paid bills / refund fees) — ${data.weekEnded ? "carried to next week's statement, nothing to pay" : "taken off their payout"}.`
                 : s?.restaurants.statements === 0
                   ? data.weekEnded
                     ? "No statement for this week yet — they are made every Monday 03:00 IST (or use Generate)."
