@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -77,13 +77,15 @@ function Field({
   placeholder,
   className,
 }) {
+  const id = useId();
   return (
     <div className={`space-y-1.5 ${className ?? ""}`}>
-      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <Label htmlFor={id} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
         {required ? <span className="text-brand-maroon"> *</span> : null}
       </Label>
       <Input
+        id={id}
         type={type}
         value={value}
         onChange={onChange}
@@ -102,13 +104,14 @@ function SelectField({
   placeholder,
   className,
 }) {
+  const id = useId();
   return (
     <div className={`space-y-1.5 ${className ?? ""}`}>
-      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <Label htmlFor={id} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
+        <SelectTrigger id={id}>
           <SelectValue placeholder={placeholder ?? "Select…"} />
         </SelectTrigger>
         <SelectContent>
@@ -326,19 +329,21 @@ export default function StoreCreate() {
                 onChange={(e) => setField("establishedYear", e.target.value)}
               />
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Label htmlFor="store-description" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Description
                 </Label>
                 <Textarea
+                  id="store-description"
                   value={form.description}
                   onChange={(e) => setField("description", e.target.value)}
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Label htmlFor="store-street" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Street Address
                 </Label>
                 <Textarea
+                  id="store-street"
                   value={form.street}
                   onChange={(e) => setField("street", e.target.value)}
                 />

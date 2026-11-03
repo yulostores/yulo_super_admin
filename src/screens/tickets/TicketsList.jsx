@@ -22,6 +22,7 @@ import { usePagination } from "@/hooks/admin/usePagination";
 import { useTickets } from "@/hooks/admin/useTickets";
 import {
   TICKET_CATEGORIES,
+  ticketCategoryLabel,
   TICKET_KINDS,
   TICKET_PRIORITIES,
   TICKET_STATUS_LABEL,
@@ -127,8 +128,8 @@ export default function TicketsList() {
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             {TICKET_CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c} className="capitalize">
-                {c}
+              <SelectItem key={c} value={c}>
+                {ticketCategoryLabel(c)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -176,8 +177,8 @@ export default function TicketsList() {
                   <TableCell className="capitalize text-muted-foreground">
                     {t.raisedByType?.replace(/_/g, " ")}
                   </TableCell>
-                  <TableCell className="capitalize text-muted-foreground">
-                    {t.category}
+                  <TableCell className="text-muted-foreground">
+                    {ticketCategoryLabel(t.category)}
                   </TableCell>
                   <TableCell>
                     <Badge

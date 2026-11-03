@@ -314,14 +314,14 @@ export function toForm(settings) {
 function parseField(field, raw) {
   if (field.kind === "paise") {
     const n = Number(raw);
-    if (raw === "" || !Number.isFinite(n) || n < 0)
-      return { error: "Enter an amount in rupees" };
+    if (raw === "" || !Number.isFinite(n)) return { error: "Enter an amount in rupees" };
+    if (n < 0) return { error: "Can't be negative" };
     return { value: Math.round(n * 100) };
   }
   if (field.kind === "percent" || field.kind === "number") {
     const n = Number(raw);
-    if (raw === "" || !Number.isFinite(n) || n < 0)
-      return { error: "Enter a number" };
+    if (raw === "" || !Number.isFinite(n)) return { error: "Enter a number" };
+    if (n < 0) return { error: "Can't be negative" };
     return { value: n };
   }
   if (field.kind === "text") {
@@ -396,9 +396,20 @@ export function serverFieldErrors(err) {
   const out = {};
   for (const f of FINANCE_FIELDS) {
     const msgs = fieldErrors[f.key] ?? fieldErrors[f.key.split(".")[0]];
-    if (msgs?.length) out[f.key] = Array.isArray(msgs) ? msgs[0] : String(msgs);
+    if (msgs?.length) out[f.key] = plainLimit(Array.isArray(msgs) ? msgs[0] : String(msgs), f);
   }
   return out;
+}
+
+// The server's range messages ("Too big: expected number to be <=50") in plain words, in the
+// unit the admin typed in — a paise limit is shown in rupees.
+function plainLimit(message, field) {
+  const m = /Too (big|small): expected number to be ([<>]=?)\s*(-?[\d.]+)/.exec(message);
+  if (!m) return message;
+  const n = Number(m[3]);
+  const shown = field.kind === "paise" ? `₹${(n / 100).toFixed(2)}` : field.kind === "percent" ? `${n}%` : String(n);
+  if (m[1] === "big") return `Must be ${shown} or less`;
+  return m[2] === ">" ? `Must be more than ${shown}` : `Must be ${shown} or more`;
 }
 
 // The version a given version was built on: the newest earlier-saved version already in

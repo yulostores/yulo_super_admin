@@ -306,6 +306,20 @@ function ActionCard({ data, open, onReceipt, receiptBusy }) {
     </Button>
   );
 
+  // A statement for a week still running (generated early by hand) can't be scheduled until
+  // the week is over — the server refuses it (WEEK_NOT_ENDED); say so instead of offering it.
+  if (status === "draft" && new Date(settlement.periodEnd).getTime() >= Date.now()) {
+    return card(
+      CalendarDays,
+      "info",
+      "Week still running",
+      `This week ends ${payoutDay(settlement.periodEnd)} — orders until then can still join this statement. Schedule it after that.`,
+      [
+        secondary("Schedule payout", () => {}, true),
+        secondary("Place on hold", () => open("hold")),
+      ],
+    );
+  }
   if (status === "draft") {
     return card(
       CalendarDays,

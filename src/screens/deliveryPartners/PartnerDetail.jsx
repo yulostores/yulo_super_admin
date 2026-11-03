@@ -74,13 +74,16 @@ function PayoutDetails({ partnerId, partnerName }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ incentives: "0", deductions: "0" });
+  const [form, setForm] = useState({ incentives: "0", deductions: "0", notes: "" });
+  const [formError, setFormError] = useState(null);
 
   function beginEdit(payout) {
     setEditingId(payout._id);
+    setFormError(null);
     setForm({
       incentives: String(payout.incentives ?? 0),
       deductions: String(payout.deductions ?? 0),
+      notes: payout.notes ?? "",
     });
   }
 
@@ -88,9 +91,17 @@ function PayoutDetails({ partnerId, partnerName }) {
   function save(payout) {
     const incentives = Number(form.incentives) || 0;
     const deductions = Number(form.deductions) || 0;
+    // Both are amounts (₹0 or more): a deduction is entered as a deduction, never as a
+    // negative incentive — the server refuses negatives, so say so before the confirm step.
+    if (incentives < 0 || deductions < 0) {
+      setFormError("Enter amounts of ₹0 or more — use Deductions to take money off.");
+      return;
+    }
+    setFormError(null);
+    const notes = form.notes.trim();
     const oldIncentives = Number(payout.incentives) || 0;
     const oldDeductions = Number(payout.deductions) || 0;
-    if (incentives === oldIncentives && deductions === oldDeductions) {
+    if (incentives === oldIncentives && deductions === oldDeductions && notes === (payout.notes ?? "")) {
       setEditingId(null);
       return;
     }
@@ -102,7 +113,7 @@ function PayoutDetails({ partnerId, partnerName }) {
       confirmLabel: "Save adjustment",
       onConfirm: () =>
         adjust.mutateAsync(
-          { payoutId: payout._id, body: { incentives, deductions } },
+          { payoutId: payout._id, body: { incentives, deductions, ...(notes ? { notes } : {}) } },
           {
             onSuccess: () => {
               setEditingId(null);
@@ -168,6 +179,7 @@ function PayoutDetails({ partnerId, partnerName }) {
                   <Label>Incentives</Label>
                   <Input
                     type="number"
+                    min={0}
                     value={form.incentives}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, incentives: e.target.value }))
@@ -178,6 +190,7 @@ function PayoutDetails({ partnerId, partnerName }) {
                   <Label>Deductions</Label>
                   <Input
                     type="number"
+                    min={0}
                     value={form.deductions}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, deductions: e.target.value }))
@@ -201,6 +214,20 @@ function PayoutDetails({ partnerId, partnerName }) {
                     Cancel
                   </button>
                 </div>
+                <div className="col-span-2 space-y-1.5 sm:col-span-4">
+                  <Label>Reason (kept with the payout)</Label>
+                  <Input
+                    value={form.notes}
+                    maxLength={500}
+                    placeholder="e.g. Order #F746A1 paid for a wrong distance"
+                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+                {formError ? (
+                  <p role="alert" className="col-span-2 text-xs font-semibold text-brand-maroon sm:col-span-4">
+                    {formError}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -237,6 +264,9 @@ function PayoutDetails({ partnerId, partnerName }) {
               </div>
             )}
 
+            {editingId !== payout._id && payout.notes ? (
+              <p className="mt-2 text-xs text-muted-foreground">Reason: {payout.notes}</p>
+            ) : null}
             {editingId !== payout._id ? (
               <button
                 type="button"
@@ -770,6 +800,7 @@ export default function PartnerDetail() {
         onSave={() =>
           update.mutate(personalForm, {
             onSuccess: () => setEditingPersonal(false),
+            onError: (err) => toast.error(err, "Could not save the personal details."),
           })
         }
         editChildren={
@@ -861,7 +892,10 @@ export default function PartnerDetail() {
         onSave={() =>
           update.mutate(
             { vehicle: vehicleForm },
-            { onSuccess: () => setEditingVehicle(false) },
+            {
+              onSuccess: () => setEditingVehicle(false),
+              onError: (err) => toast.error(err, "Could not save the vehicle details."),
+            },
           )
         }
         editChildren={

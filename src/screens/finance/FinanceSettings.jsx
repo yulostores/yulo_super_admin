@@ -146,7 +146,7 @@ function FieldInput({ field, value, onChange, error }) {
         </div>
       )}
       {error ? (
-        <p className="text-xs font-semibold text-brand-maroon">{error}</p>
+        <p data-field-error className="text-xs font-semibold text-brand-maroon">{error}</p>
       ) : null}
     </div>
   );
@@ -225,7 +225,14 @@ export default function FinanceSettings() {
     setFormError(null);
     const { patch, changes, errors } = buildPatch(active, form);
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      // The button sits at the bottom of a long form — bring the first problem into view,
+      // or pressing it looks like it did nothing.
+      requestAnimationFrame(() =>
+        document.querySelector("[data-field-error]")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      );
+      return;
+    }
     if (!changes.length) {
       setFormError("Nothing has changed — edit a value first.");
       return;

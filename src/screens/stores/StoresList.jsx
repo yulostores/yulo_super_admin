@@ -39,15 +39,19 @@ const STATUS_OPTIONS = [
   { value: "suspended", label: "Suspended" },
   { value: "expired", label: "Expired" },
   { value: "rejected", label: "Rejected" },
+  // Soft-deleted stores — left out of every other view.
+  { value: "removed", label: "Removed" },
 ];
 
 // The API has no "resubmit" endpoint: a rejected owner simply re-saves their store
 // settings, which bumps `updatedAt` and nothing else. Comparing it against `reviewedAt`
 // is the only signal an admin gets that a rejected application has been corrected and is
 // worth a second look — without it the Rejected filter is a pile with nothing to sort by.
+// The owner's own edits only (Restaurant.ownerEditedAt) — updatedAt also moves on admin
+// actions (a note, suspend, remove), which used to flag every one of them as "updated".
 function editedSinceReview(store) {
-  if (!store.reviewedAt || !store.updatedAt) return false;
-  return new Date(store.updatedAt) > new Date(store.reviewedAt);
+  if (!store.reviewedAt || !store.ownerEditedAt) return false;
+  return new Date(store.ownerEditedAt) > new Date(store.reviewedAt);
 }
 
 function RecentRegistrations() {
@@ -325,14 +329,18 @@ export default function StoresList() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              STORE_STATUS_VARIANT[s.approvalStatus] ?? "muted"
-                            }
-                            className="capitalize"
-                          >
-                            {s.approvalStatus}
-                          </Badge>
+                          {s.isActive === false ? (
+                            <Badge variant="muted">Removed</Badge>
+                          ) : (
+                            <Badge
+                              variant={
+                                STORE_STATUS_VARIANT[s.approvalStatus] ?? "muted"
+                              }
+                              className="capitalize"
+                            >
+                              {s.approvalStatus}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           <div>{s.address?.city ?? "—"}</div>

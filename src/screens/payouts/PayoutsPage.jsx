@@ -991,7 +991,8 @@ export default function PayoutsPage() {
           ) : null}
         </>
       ) : null}
-      <MoreMenu />
+      {/* Generate week defaults to the week on screen (Weekly batch), else last week. */}
+      <MoreMenu weekStart={tab === "weekly" ? weekly.data?.periodStart : undefined} />
     </div>
   );
 

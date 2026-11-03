@@ -41,7 +41,7 @@ import { PayoutModal, WarnBox } from "./parts";
 
 const MAX_ADJUSTMENT_RUPEES = 1_000_000; // ₹10 lakh — MAX_ADJUSTMENT_PAISE on the server
 
-export function MoreMenu({ restaurant = null, allowGenerate = true }) {
+export function MoreMenu({ restaurant = null, allowGenerate = true, weekStart }) {
   const [open, setOpen] = useState(null); // 'generate' | 'adjust' | null
   return (
     <>
@@ -64,6 +64,7 @@ export function MoreMenu({ restaurant = null, allowGenerate = true }) {
       </DropdownMenu>
       <GenerateWeekModal
         open={open === "generate"}
+        weekStart={weekStart}
         onClose={() => setOpen(null)}
       />
       <AdjustmentModal
@@ -75,14 +76,19 @@ export function MoreMenu({ restaurant = null, allowGenerate = true }) {
   );
 }
 
-function GenerateWeekModal({ open, onClose }) {
+function GenerateWeekModal({ open, weekStart, onClose }) {
   const toast = useToast();
   const generate = useGenerateSettlements();
   const [day, setDay] = useState("");
 
+  // The week the admin is looking at, or — from anywhere else — last week. A day inside it
+  // (its Tuesday, midday) so no time-zone edge lands on the week before.
   useEffect(() => {
-    if (open) setDay(isoDay(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)));
-  }, [open]);
+    if (!open) return;
+    const inWeek = weekStart ? new Date(new Date(weekStart).getTime() + 36 * 60 * 60 * 1000) : null;
+    const pick = inWeek && inWeek.getTime() <= Date.now() ? inWeek : weekStart ? new Date() : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    setDay(isoDay(pick));
+  }, [open, weekStart]);
 
   async function confirm() {
     try {

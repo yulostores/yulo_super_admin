@@ -35,12 +35,15 @@ export default function CustomerDetail() {
 
   // Deactivating locks the customer out, so it is confirmed; re-activating restores access
   // and stays one tap.
+  // Many customers sign in with a phone number and never give a name.
+  const who = customer.name || customer.phone || "This customer";
+
   function toggleActive() {
     const next = !customer.isActive;
     const run = () =>
       setStatus.mutateAsync(next, {
         onSuccess: () =>
-          toast.success(`${customer.name} ${next ? "activated" : "deactivated"}.`),
+          toast.success(`${who} ${next ? "activated" : "deactivated"}.`),
         onError: (err) => toast.error(err, "Could not change the customer's status."),
       });
     if (next) {
@@ -48,8 +51,8 @@ export default function CustomerDetail() {
       return;
     }
     confirm.ask({
-      title: `Deactivate ${customer.name}?`,
-      description: `${customer.name} can no longer sign in or place orders until you activate the account again. Their order history is kept.`,
+      title: `Deactivate ${who}?`,
+      description: `${who} can no longer sign in or place orders until you activate the account again. Their order history is kept.`,
       confirmLabel: "Deactivate customer",
       tone: "danger",
       onConfirm: run,
@@ -59,7 +62,7 @@ export default function CustomerDetail() {
   return (
     <AdminLayout
       breadcrumb="Customer Report > Customer Details"
-      title={customer.name}
+      title={who}
       subtitle={`Customer ID: ${customer._id} · Joined ${formatDate(customer.createdAt)}`}
       action={
         <Button
@@ -88,7 +91,7 @@ export default function CustomerDetail() {
           </Avatar>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold">{customer.name}</h2>
+              <h2 className="text-lg font-bold">{customer.name || "No name given"}</h2>
               <Badge variant={customer.isActive ? "ok" : "danger"}>
                 {customer.isActive ? "Active" : "Inactive"}
               </Badge>

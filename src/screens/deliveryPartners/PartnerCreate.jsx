@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, FileText, Landmark, User, Zap } from "lucide-react";
 
@@ -57,9 +57,9 @@ const EMPTY = {
   upiId: "",
 };
 
-function FieldLabel({ label, required }) {
+function FieldLabel({ label, required, htmlFor }) {
   return (
-    <Label>
+    <Label htmlFor={htmlFor}>
       {label}
       {required ? <span className="text-brand-red"> *</span> : null}
     </Label>
@@ -74,10 +74,12 @@ function TextField({
   type = "text",
   placeholder,
 }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <FieldLabel label={label} required={required} />
+      <FieldLabel label={label} required={required} htmlFor={id} />
       <Input
+        id={id}
         type={type}
         value={value}
         onChange={onChange}
@@ -92,15 +94,17 @@ function TextField({
 // the Figma reference. Purely presentational — value/onChange wiring is
 // untouched so it still binds straight to the same form field.
 function PhoneField({ label, required, value, onChange, placeholder }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <FieldLabel label={label} required={required} />
+      <FieldLabel label={label} required={required} htmlFor={id} />
       <div className="flex h-10 items-center overflow-hidden rounded-lg border border-input bg-white shadow-sm focus-within:ring-1 focus-within:ring-ring">
         <span className="flex h-full shrink-0 items-center gap-1 border-r border-input bg-brand-cream/20 px-2 text-sm text-muted-foreground">
           <span aria-hidden="true">🇮🇳</span>
           <span>+91</span>
         </span>
         <Input
+          id={id}
           type="tel"
           value={value}
           onChange={onChange}
@@ -117,11 +121,13 @@ function PhoneField({ label, required, value, onChange, placeholder }) {
 // native picker indicator is stretched over the icon (invisible) so clicking
 // it still opens the date picker.
 function DateField({ label, required, value, onChange, placeholder }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <FieldLabel label={label} required={required} />
+      <FieldLabel label={label} required={required} htmlFor={id} />
       <div className="relative">
         <Input
+          id={id}
           type="date"
           value={value}
           onChange={onChange}
@@ -141,6 +147,11 @@ export default function PartnerCreate() {
   const [form, setForm] = useState(EMPTY);
   const [files, setFiles] = useState({});
   const [error, setError] = useState("");
+  const errorRef = useRef(null);
+  // The button is at the bottom of a long form — show the problem where the admin is looking.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   function setField(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -186,7 +197,11 @@ export default function PartnerCreate() {
       title="Add New Delivery Partner"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error ? <p className="text-sm text-brand-maroon">{error}</p> : null}
+        {error ? (
+          <p ref={errorRef} role="alert" className="text-sm font-semibold text-brand-maroon">
+            {error}
+          </p>
+        ) : null}
 
         <Card>
           <CardHeader className="pb-3">

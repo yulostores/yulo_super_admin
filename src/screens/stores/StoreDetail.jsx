@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -163,6 +164,9 @@ function ViewBox({ label, value, multiline }) {
   );
 }
 
+// Legal entity types the server accepts (yulo_backend config/storeSettings.config.js).
+const LEGAL_ENTITY_TYPES = ["Sole proprietorship", "Partnership", "Private Limited", "Public Limited", "NGO", "AOP/BOI"];
+
 function PhoneBox({ label, value, editable, onChange }) {
   const local = (value ?? "").replace(/^\+?91[\s-]?/, "");
   return (
@@ -248,9 +252,12 @@ export default function StoreDetail() {
     [id, viewedDocId],
   );
 
+  // Each form follows the saved store — except one being edited: a background refetch
+  // (switching back to this tab) used to reset whatever the admin had half typed. Cancel or
+  // save ends editing, and the form then picks up the saved values again.
   useEffect(() => {
     if (!store) return;
-    setHoursForm(
+    if (!editingHours) setHoursForm(
       DAYS.map((day) => {
         const existing = store.operatingHours?.find((h) => h.day === day);
         return (
@@ -258,21 +265,25 @@ export default function StoreDetail() {
         );
       }),
     );
-    setDeliveryForm(store.delivery ?? {});
+    if (!editingDelivery) setDeliveryForm(store.delivery ?? {});
     // Coordinates are stored GeoJSON [lng, lat]; the inputs are labelled lat/lng because
     // that is the order every map app on earth shows them in, and pasting a pair the wrong
     // way round is the single easiest way to move a restaurant to the Arctic.
     const [lng, lat] = store.location?.coordinates ?? [];
-    setLocationForm({
-      lat: Number.isFinite(lat) ? String(lat) : "",
-      lng: Number.isFinite(lng) ? String(lng) : "",
-    });
-    setLocationError(null);
-    setBusinessForm(store.settings ?? {});
-    setLicensesForm(store.settings ?? {});
-    setGstRegisteredForm(!!store.gstRegistered);
-    setLicensesError(null);
-    setProfileForm({
+    if (!editingLocation) {
+      setLocationForm({
+        lat: Number.isFinite(lat) ? String(lat) : "",
+        lng: Number.isFinite(lng) ? String(lng) : "",
+      });
+      setLocationError(null);
+    }
+    if (!editingBusiness) setBusinessForm(store.settings ?? {});
+    if (!editingLicenses) {
+      setLicensesForm(store.settings ?? {});
+      setGstRegisteredForm(!!store.gstRegistered);
+      setLicensesError(null);
+    }
+    if (!editingProfile) setProfileForm({
       name: store.name ?? "",
       category: store.category ?? "",
       description: store.description ?? "",
@@ -283,8 +294,10 @@ export default function StoreDetail() {
       state: store.address?.state ?? "",
       pincode: store.address?.pincode ?? "",
       alternatePhone: store.settings?.alternatePhone ?? "",
+      email: store.email ?? "",
+      phone: store.phone ?? "",
     });
-  }, [store]);
+  }, [store, editingHours, editingDelivery, editingLocation, editingBusiness, editingLicenses, editingProfile]);
 
   if (isLoading) {
     return (
@@ -466,16 +479,23 @@ export default function StoreDetail() {
         </p>
       ) : null}
 
+      {store.isActive === false ? (
+        <p className="mb-4 rounded-xl border border-brand-maroon/30 bg-[#FCE9E4] px-4 py-3 text-sm text-brand-maroon">
+          This store was removed — it is off the platform and hidden from customers. Its order and
+          bill history is kept.
+        </p>
+      ) : null}
+
       {/* There is no resubmit endpoint — a rejected owner just re-saves their store
-          settings, which bumps updatedAt and nothing else. That timestamp is the only
-          signal an admin gets that the application is worth a second look. */}
+          settings or documents, which stamps ownerEditedAt. updatedAt can't be used: admin
+          actions (notes, suspend, remove) move it too. */}
       {status === "rejected" &&
       store.reviewedAt &&
-      store.updatedAt &&
-      new Date(store.updatedAt) > new Date(store.reviewedAt) ? (
+      store.ownerEditedAt &&
+      new Date(store.ownerEditedAt) > new Date(store.reviewedAt) ? (
         <p className="mb-4 rounded-xl border border-[#F5C99B] bg-[#FFF7ED] px-4 py-3 text-sm">
           The owner has edited their details since this rejection (last saved{" "}
-          {formatDate(store.updatedAt)}). Re-check the sections below before deciding again.
+          {formatDate(store.ownerEditedAt)}). Re-check the sections below before deciding again.
         </p>
       ) : null}
 
@@ -517,7 +537,7 @@ export default function StoreDetail() {
             onSave={() =>
               update.mutate(
                 { operatingHours: hoursForm },
-                { onSuccess: () => setEditingHours(false) },
+                { onSuccess: () => setEditingHours(false), onError: (err) => toast.error(err, "Could not save these changes.") },
               )
             }
             editChildren={hoursForm.map((h, i) => (
@@ -608,7 +628,7 @@ export default function StoreDetail() {
             onSave={() =>
               update.mutate(
                 { delivery: deliveryForm },
-                { onSuccess: () => setEditingDelivery(false) },
+                { onSuccess: () => setEditingDelivery(false), onError: (err) => toast.error(err, "Could not save these changes.") },
               )
             }
             editChildren={
@@ -617,11 +637,13 @@ export default function StoreDetail() {
                   <Label>Radius (km)</Label>
                   <Input
                     type="number"
+                    min={0} max={25}
                     value={deliveryForm.radiusKm ?? ""}
                     onChange={(e) =>
                       setDeliveryForm((f) => ({
                         ...f,
-                        radiusKm: Number(e.target.value),
+                        // Cleared → not set (a cleared free threshold must not become ₹0).
+                        radiusKm: e.target.value === "" ? undefined : Number(e.target.value),
                       }))
                     }
                   />
@@ -630,11 +652,13 @@ export default function StoreDetail() {
                   <Label>Base Charge</Label>
                   <Input
                     type="number"
+                    min={0}
                     value={deliveryForm.baseCharge ?? ""}
                     onChange={(e) =>
                       setDeliveryForm((f) => ({
                         ...f,
-                        baseCharge: Number(e.target.value),
+                        // Cleared → not set (a cleared free threshold must not become ₹0).
+                        baseCharge: e.target.value === "" ? undefined : Number(e.target.value),
                       }))
                     }
                   />
@@ -643,11 +667,13 @@ export default function StoreDetail() {
                   <Label>Free Threshold</Label>
                   <Input
                     type="number"
+                    min={0}
                     value={deliveryForm.freeThreshold ?? ""}
                     onChange={(e) =>
                       setDeliveryForm((f) => ({
                         ...f,
-                        freeThreshold: Number(e.target.value),
+                        // Cleared → not set (a cleared free threshold must not become ₹0).
+                        freeThreshold: e.target.value === "" ? undefined : Number(e.target.value),
                       }))
                     }
                   />
@@ -656,11 +682,13 @@ export default function StoreDetail() {
                   <Label>Estimated Minutes</Label>
                   <Input
                     type="number"
+                    min={0} max={1440}
                     value={deliveryForm.estimatedMinutes ?? ""}
                     onChange={(e) =>
                       setDeliveryForm((f) => ({
                         ...f,
-                        estimatedMinutes: Number(e.target.value),
+                        // Cleared → not set (a cleared free threshold must not become ₹0).
+                        estimatedMinutes: e.target.value === "" ? undefined : Number(e.target.value),
                       }))
                     }
                   />
@@ -782,22 +810,31 @@ export default function StoreDetail() {
             onSave={() =>
               update.mutate(
                 { settings: { ...store.settings, ...businessForm } },
-                { onSuccess: () => setEditingBusiness(false) },
+                { onSuccess: () => setEditingBusiness(false), onError: (err) => toast.error(err, "Could not save these changes.") },
               )
             }
             editChildren={
               <>
                 <div className="space-y-1.5">
-                  <Label>Legal Entity Type</Label>
-                  <Input
-                    value={businessForm.legalEntityType ?? ""}
-                    onChange={(e) =>
-                      setBusinessForm((f) => ({
-                        ...f,
-                        legalEntityType: e.target.value,
-                      }))
+                  <Label htmlFor="legal-entity-type">Legal Entity Type</Label>
+                  {/* The six types the server accepts (config/storeSettings.config.js). */}
+                  <Select
+                    value={businessForm.legalEntityType || undefined}
+                    onValueChange={(v) =>
+                      setBusinessForm((f) => ({ ...f, legalEntityType: v }))
                     }
-                  />
+                  >
+                    <SelectTrigger id="legal-entity-type">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LEGAL_ENTITY_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Owner Name</Label>
@@ -1033,12 +1070,15 @@ export default function StoreDetail() {
                     state: profileForm.state,
                     pincode: profileForm.pincode,
                   },
+                  // The restaurant's own public contact details (not the owner's login).
+                  email: profileForm.email.trim() || undefined,
+                  phone: profileForm.phone.trim() || undefined,
                   settings: {
                     ...store.settings,
                     alternatePhone: profileForm.alternatePhone,
                   },
                 },
-                { onSuccess: () => setEditingProfile(false) },
+                { onSuccess: () => setEditingProfile(false), onError: (err) => toast.error(err, "Could not save these changes.") },
               )
             }
             editChildren={
@@ -1077,7 +1117,17 @@ export default function StoreDetail() {
                     }
                   />
                 </div>
-                <ViewBox label="Email Address" value={store.ownerId?.email} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="store-email">Restaurant Email</Label>
+                  <Input
+                    id="store-email"
+                    type="email"
+                    value={profileForm.email ?? ""}
+                    onChange={(e) =>
+                      setProfileForm((f) => ({ ...f, email: e.target.value }))
+                    }
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label>Store Address</Label>
                   <Textarea
@@ -1087,7 +1137,12 @@ export default function StoreDetail() {
                     }
                   />
                 </div>
-                <PhoneBox label="Phone Number" value={store.ownerId?.phone} />
+                <PhoneBox
+                  label="Restaurant Phone"
+                  value={profileForm.phone}
+                  editable
+                  onChange={(v) => setProfileForm((f) => ({ ...f, phone: v }))}
+                />
                 <div className="space-y-1.5">
                   <Label>City</Label>
                   <Input
@@ -1190,13 +1245,15 @@ export default function StoreDetail() {
               label="Cuisine Type"
               value={(store.cuisineTypes ?? []).join(", ")}
             />
-            <ViewBox label="Email Address" value={store.ownerId?.email} />
+            {/* The restaurant's own contact details; the owner's login email and phone are in
+                the card at the top. */}
+            <ViewBox label="Restaurant Email" value={store.email} />
             <ViewBox
               label="Store Address"
               value={store.address?.street}
               multiline
             />
-            <PhoneBox label="Phone Number" value={store.ownerId?.phone} />
+            <PhoneBox label="Restaurant Phone" value={store.phone} />
             <ViewBox label="City" value={store.address?.city} />
             <PhoneBox
               label="Alternate Phone Number"

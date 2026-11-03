@@ -52,14 +52,22 @@ export const TICKET_KINDS = [
   { value: "general", label: "General" },
 ];
 export const TICKET_PRIORITIES = ["low", "medium", "high"];
-export const TICKET_CATEGORIES = [
-  "billing",
-  "technical",
-  "account",
-  "delivery",
-  "payout",
-  "other",
-];
+// Every category a ticket can carry (yulo_backend models/SupportTicket.js) — the customer
+// app's Help & Support rows included — with how each reads in the portal.
+export const TICKET_CATEGORY_LABELS = {
+  order_delayed: "Order delayed",
+  wrong_missing_items: "Wrong or missing items",
+  veg_fleet_issue: "Veg-fleet delivery",
+  payment_refund: "Payment or refund",
+  billing: "Billing",
+  technical: "Technical",
+  account: "Account",
+  delivery: "Delivery",
+  payout: "Payout",
+  other: "Other",
+};
+export const TICKET_CATEGORIES = Object.keys(TICKET_CATEGORY_LABELS);
+export const ticketCategoryLabel = (c) => TICKET_CATEGORY_LABELS[c] ?? String(c ?? "—").replace(/_/g, " ");
 
 export const TICKET_STATUS_VARIANT = {
   open: "danger",

@@ -27,6 +27,16 @@ import { useConfirm } from "@/components/admin/useConfirm";
 import { useToast } from "@/components/admin/Toaster";
 import AdminLayout, { formatDate } from "../AdminLayout";
 import { formatPrice } from "@/lib/format";
+import { ticketCategoryLabel } from "@/lib/constants";
+
+// Order.paymentStatus in words.
+const PAYMENT_STATUS = {
+  pending: "payment pending",
+  pending_cod: "cash on delivery (not collected yet)",
+  paid: "paid",
+  failed: "payment failed",
+  refunded: "refunded",
+};
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -131,7 +141,7 @@ export default function TicketDetail() {
                       {(ticket.order.items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(", ")}
                     </p>
                     <p className="mt-1 text-muted-foreground">
-                      {formatPrice(ticket.order.grandTotal)} · {ticket.order.paymentStatus}
+                      {formatPrice(ticket.order.grandTotal)} · {PAYMENT_STATUS[ticket.order.paymentStatus] ?? ticket.order.paymentStatus}
                       {ticket.order.refundStatus && ticket.order.refundStatus !== "none"
                         ? ` · refund ${ticket.order.refundStatus}`
                         : ""}
@@ -187,6 +197,7 @@ export default function TicketDetail() {
                 <Button
                   type="button"
                   size="icon"
+                  aria-label="Send reply"
                   disabled={!reply.trim() || addMessage.isPending}
                   onClick={() =>
                     addMessage.mutate(reply.trim(), {
@@ -246,8 +257,8 @@ export default function TicketDetail() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Category</span>
-                <Badge variant="muted" className="capitalize">
-                  {String(ticket.category ?? "").replace(/_/g, " ")}
+                <Badge variant="muted">
+                  {ticketCategoryLabel(ticket.category)}
                 </Badge>
               </div>
               {ticket.resolvedAt ? (
