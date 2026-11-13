@@ -1,6 +1,6 @@
 // Platform Admin shell — light sidebar + top bar. Used by every screen in this app.
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Banknote,
@@ -170,12 +170,23 @@ export default function AdminLayout({
   const isActive = (item) =>
     item.exact ? pathname === item.to : pathname.startsWith(item.to);
   const openTickets = useOpenTicketCount();
+  // Keep the current page's menu item in view: on a short window (or zoomed in) the nav scrolls,
+  // and a page low in the list would otherwise open with its item hidden below the fold.
+  const navRef = useRef(null);
+  useEffect(() => {
+    navRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  });
 
   return (
     <div className="flex min-h-screen bg-brand-surface font-sans text-brand-ink">
-      <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col justify-between border-r border-brand-cream/60 bg-white">
-        <div>
-          <div className="flex items-center gap-3 px-6 pb-6 pt-6">
+      {/* Full-height column: logo and account menu stay put, and the nav between them scrolls on
+          its own — at 150 % zoom (or on a short laptop screen) the list is taller than the window
+          and its last items were cut off with no way to reach them. */}
+      <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 flex-col border-r border-brand-cream/60 bg-white">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center gap-3 px-6 pb-6 pt-6">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-orange text-white">
               <Store className="h-5 w-5" />
             </span>
@@ -188,7 +199,11 @@ export default function AdminLayout({
             </div>
           </div>
 
-          <nav className="flex flex-col gap-1 px-3">
+          <nav
+            ref={navRef}
+            aria-label="Main"
+            className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-3 pb-3"
+          >
             {NAV.map((item) => {
               if (item.group) {
                 return (
@@ -207,6 +222,7 @@ export default function AdminLayout({
                   key={item.to}
                   type="button"
                   onClick={() => navigate(item.to)}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors",
                     active
@@ -225,7 +241,7 @@ export default function AdminLayout({
           </nav>
         </div>
 
-        <div className="border-t border-brand-cream/60 p-3">
+        <div className="shrink-0 border-t border-brand-cream/60 p-3">
           <UserMenu />
         </div>
       </aside>
