@@ -24,6 +24,17 @@ import PayoutsPage from "./screens/payouts/PayoutsPage";
 import PayoutDetail from "./screens/payouts/PayoutDetail";
 import PaymentIssues from "./screens/payouts/PaymentIssues";
 import PaymentIssueDetail from "./screens/payouts/PaymentIssueDetail";
+import SellersList from "./screens/coupons/SellersList";
+import SellerDetail from "./screens/coupons/SellerDetail";
+import OfferReview from "./screens/coupons/OfferReview";
+import CouponPlans from "./screens/coupons/CouponPlans";
+import CouponCategories from "./screens/coupons/CouponCategories";
+import CouponsList from "./screens/coupons/CouponsList";
+import Complimentary from "./screens/coupons/Complimentary";
+import CouponSettings from "./screens/coupons/CouponSettings";
+import CouponReports from "./screens/coupons/CouponReports";
+import ReminderCampaigns from "./screens/coupons/ReminderCampaigns";
+import CampaignDetail from "./screens/coupons/CampaignDetail";
 
 export default function App() {
   return (
@@ -211,6 +222,98 @@ export default function App() {
         element={
           <AdminRoute>
             <TicketDetail />
+          </AdminRoute>
+        }
+      />
+
+      {/* Coupon partners (COUPON_IMPLEMENTATION_PROMPTS.md CF6). */}
+      <Route
+        path="/sellers"
+        element={
+          <AdminRoute>
+            <SellersList />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/sellers/:id"
+        element={
+          <AdminRoute>
+            <SellerDetail />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/coupon-offers"
+        element={
+          <AdminRoute>
+            <OfferReview />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/coupon-plans"
+        element={
+          <AdminRoute>
+            <CouponPlans />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/coupons"
+        element={
+          <AdminRoute>
+            <CouponsList />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/coupons/complimentary"
+        element={
+          <AdminRoute>
+            <Complimentary />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/coupon-categories"
+        element={
+          <AdminRoute>
+            <CouponCategories />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/coupon-settings"
+        element={
+          <AdminRoute>
+            <CouponSettings />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/coupon-reports"
+        element={
+          <AdminRoute>
+            <CouponReports />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/reminder-campaigns"
+        element={
+          <AdminRoute>
+            <ReminderCampaigns />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/reminder-campaigns/:id"
+        element={
+          <AdminRoute>
+            <CampaignDetail />
           </AdminRoute>
         }
       />

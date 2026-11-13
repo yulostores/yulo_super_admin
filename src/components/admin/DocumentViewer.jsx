@@ -18,7 +18,14 @@
 // document actually on screen instead of against a filename in a list.
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Download, Loader2, RefreshCw, X, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  Loader2,
+  RefreshCw,
+  X,
+  XCircle,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { fileNameOf } from "@/lib/format";
@@ -39,8 +46,14 @@ export function documentFileName(doc) {
 
 const STATUS_COPY = {
   verified: { label: "Verified", className: "bg-status-ok-bg text-status-ok" },
-  rejected: { label: "Rejected", className: "bg-status-danger-bg text-status-danger" },
-  pending: { label: "Awaiting review", className: "bg-status-warn-bg text-status-warn" },
+  rejected: {
+    label: "Rejected",
+    className: "bg-status-danger-bg text-status-danger",
+  },
+  pending: {
+    label: "Awaiting review",
+    className: "bg-status-warn-bg text-status-warn",
+  },
 };
 
 // What the reviewer is shown when the preview fails.
@@ -57,8 +70,10 @@ const GENERIC_PREVIEW_ERROR =
   "Sorry, this document could not be previewed right now. Please try again in a moment.";
 
 const PREVIEW_ERRORS = {
-  DOCUMENT_MISSING: "This document is no longer in storage — ask the owner to upload it again.",
-  NOT_FOUND: "This document is no longer in storage — ask the owner to upload it again.",
+  DOCUMENT_MISSING:
+    "This document is no longer in storage — ask the owner to upload it again.",
+  NOT_FOUND:
+    "This document is no longer in storage — ask the owner to upload it again.",
   UNAUTHORIZED: "Your session has expired. Please sign in again.",
   TOKEN_EXPIRED: "Your session has expired. Please sign in again.",
 };
@@ -77,7 +92,11 @@ function previewErrorMessage(err) {
  * @param {number} attempt bumped to retry the same document
  */
 function useDocumentObjectUrl(fetchFile, attempt) {
-  const [state, setState] = useState({ url: null, loading: false, error: null });
+  const [state, setState] = useState({
+    url: null,
+    loading: false,
+    error: null,
+  });
 
   useEffect(() => {
     if (!fetchFile) {
@@ -103,7 +122,11 @@ function useDocumentObjectUrl(fetchFile, attempt) {
           code: err?.code,
           message: err?.message,
         });
-        setState({ url: null, loading: false, error: previewErrorMessage(err) });
+        setState({
+          url: null,
+          loading: false,
+          error: previewErrorMessage(err),
+        });
       });
 
     // Revoked on close and on every swap — a reviewer clicking through six documents
@@ -145,8 +168,13 @@ export default function DocumentViewer({
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   useEffect(() => setAttempt(0), [doc?._id]);
 
-  const active = open && !!doc?.url;
-  const { url, loading, error } = useDocumentObjectUrl(active ? fetchFile : null, attempt);
+  // A store document carries its storage url; a coupon seller's document has none (it is
+  // streamed through the API) — either is viewable as long as there is a way to fetch it.
+  const active = open && !!doc && (!!doc.url || !!fetchFile);
+  const { url, loading, error } = useDocumentObjectUrl(
+    active ? fetchFile : null,
+    attempt,
+  );
 
   if (!active) return null;
 
@@ -170,7 +198,9 @@ export default function DocumentViewer({
         <div className="flex items-center justify-between gap-3 border-b border-brand-cream/60 px-4 py-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-bold">{title ?? "Document"}</p>
+              <p className="truncate text-sm font-bold">
+                {title ?? "Document"}
+              </p>
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.className}`}
               >
@@ -214,8 +244,16 @@ export default function DocumentViewer({
             </div>
           ) : error ? (
             <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 px-6">
-              <p className="max-w-sm text-center text-sm text-brand-maroon">{error}</p>
-              <Button type="button" size="sm" variant="outline" onClick={retry} className="gap-1.5">
+              <p className="max-w-sm text-center text-sm text-brand-maroon">
+                {error}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={retry}
+                className="gap-1.5"
+              >
                 <RefreshCw className="h-3.5 w-3.5" /> Try again
               </Button>
             </div>

@@ -12,6 +12,14 @@ import {
   LayoutDashboard,
   LogOut,
   ReceiptText,
+  BadgePercent,
+  Gift,
+  LayoutGrid,
+  Settings2,
+  ChartColumn,
+  MessageSquareText,
+  Tags,
+  Ticket,
   Store,
   TrendingUp,
   Truck,
@@ -47,6 +55,21 @@ const NAV = [
   { to: "/payouts", label: "Restaurant Payouts", icon: CreditCard },
   { to: "/delivery-partners", label: "Delivery Partners", icon: Truck },
   { to: "/tickets", label: "Support & Tickets", icon: Headset },
+  // Coupon partners (salons, spas, shops) whose coupons customers get after ordering.
+  { group: "Coupons" },
+  { to: "/coupons", label: "Coupons", icon: Ticket, exact: true },
+  { to: "/sellers", label: "Sellers", icon: Store },
+  { to: "/coupon-offers", label: "Offer review", icon: BadgePercent },
+  { to: "/coupon-plans", label: "Coupon plans", icon: Tags },
+  { to: "/coupons/complimentary", label: "Complimentary", icon: Gift },
+  { to: "/coupon-categories", label: "Categories", icon: LayoutGrid },
+  { to: "/coupon-reports", label: "Coupon reports", icon: ChartColumn },
+  {
+    to: "/reminder-campaigns",
+    label: "Reminder campaigns",
+    icon: MessageSquareText,
+  },
+  { to: "/coupon-settings", label: "Coupon settings", icon: Settings2 },
 ];
 
 function UserMenu({ compact = false }) {
@@ -165,6 +188,16 @@ export default function AdminLayout({
 
           <nav className="flex flex-col gap-1 px-3">
             {NAV.map((item) => {
+              if (item.group) {
+                return (
+                  <p
+                    key={`group-${item.group}`}
+                    className="px-4 pb-1 pt-4 text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
+                  >
+                    {item.group}
+                  </p>
+                );
+              }
               const Icon = item.icon;
               const active = isActive(item);
               return (
