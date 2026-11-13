@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useConfirm } from "@/components/admin/useConfirm";
 import { useToast } from "@/components/admin/Toaster";
 import { useCouponPlans, useUpdatePlan } from "@/hooks/admin/useSellers";
-import { paiseToRupees, withGst } from "@/lib/coupons";
+import { onlinePlanTotal, paiseToRupees, withGst } from "@/lib/coupons";
 import { formatRupees } from "@/lib/format";
 import AdminLayout from "../AdminLayout";
 
@@ -103,6 +103,11 @@ function PlanCard({ plan }) {
     Number(f.basePrice) > 0 && Number(f.gstPercent) >= 0
       ? withGst(Math.round(Number(f.basePrice) * 100), Number(f.gstPercent))
       : null;
+  // The online fee the API reports for this plan (3.5 % today).
+  const feePercent = plan.online?.handlingFeePercent ?? 3.5;
+  const onlinePreview = preview
+    ? onlinePlanTotal(preview.basePaise, Number(f.gstPercent), feePercent)
+    : null;
 
   function save(e) {
     e.preventDefault();
@@ -189,7 +194,23 @@ function PlanCard({ plan }) {
             <strong>
               {preview ? formatRupees(paiseToRupees(preview.totalPaise)) : "—"}
             </strong>{" "}
-            incl. GST
+            incl. GST when they pay Yulo directly
+          </p>
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid={`${plan.key}-online-total`}
+          >
+            Online (Razorpay):{" "}
+            <strong className="text-foreground">
+              {onlinePreview
+                ? formatRupees(paiseToRupees(onlinePreview.totalPaise))
+                : "—"}
+            </strong>{" "}
+            incl. {feePercent}% payment handling fee
+            {onlinePreview
+              ? ` (${formatRupees(paiseToRupees(onlinePreview.handlingFeePaise))})`
+              : ""}{" "}
+            + GST
           </p>
           <div className="grid grid-cols-2 gap-3">
             {field(

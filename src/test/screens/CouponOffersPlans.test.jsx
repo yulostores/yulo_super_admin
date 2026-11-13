@@ -214,6 +214,13 @@ describe("Coupon plans editor", () => {
     expect(screen.getByTestId("basic-total").textContent).toContain(
       "₹5,310.00",
     );
+    // Online: ₹4,500 + 3.5 % (₹157.50) = ₹4,657.50, + 18 % GST (₹838.35) = ₹5,495.85.
+    expect(screen.getByTestId("basic-online-total").textContent).toContain(
+      "₹5,495.85",
+    );
+    expect(screen.getByTestId("basic-online-total").textContent).toContain(
+      "3.5% payment handling fee (₹157.50)",
+    );
   });
 
   it("saves only what changed, after confirming", async () => {

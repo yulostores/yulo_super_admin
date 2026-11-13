@@ -59,6 +59,27 @@ export function withGst(basePaise, gstPercent) {
   return { basePaise, gstPaise, totalPaise: basePaise + gstPaise };
 }
 
+// Online (Razorpay) plan purchases add this payment handling fee, then GST on price + fee — the
+// backend's PLAN_ONLINE_HANDLING_FEE_PERCENT (config/coupon.config.js). Offline payments recorded
+// with "Amount Received" pay withGst() only.
+export const PLAN_ONLINE_HANDLING_FEE_PERCENT = 3.5;
+export function onlinePlanTotal(
+  basePaise,
+  gstPercent,
+  feePercent = PLAN_ONLINE_HANDLING_FEE_PERCENT,
+) {
+  const handlingFeePaise = Math.round((basePaise * feePercent) / 100);
+  const gstPaise = Math.round(
+    ((basePaise + handlingFeePaise) * gstPercent) / 100,
+  );
+  return {
+    basePaise,
+    handlingFeePaise,
+    gstPaise,
+    totalPaise: basePaise + handlingFeePaise + gstPaise,
+  };
+}
+
 export const todayYmd = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
