@@ -16,6 +16,7 @@ import {
   Gift,
   LayoutGrid,
   Settings2,
+  FileText,
   ChartColumn,
   MessageSquareText,
   Tags,
@@ -64,6 +65,7 @@ const NAV = [
   { to: "/coupons/complimentary", label: "Complimentary", icon: Gift },
   { to: "/coupon-categories", label: "Categories", icon: LayoutGrid },
   { to: "/coupon-reports", label: "Coupon reports", icon: ChartColumn },
+  { to: "/seller-bills", label: "Seller bills", icon: FileText },
   {
     to: "/reminder-campaigns",
     label: "Reminder campaigns",

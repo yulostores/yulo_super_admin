@@ -36,6 +36,8 @@ import CouponSettings from "@/screens/coupons/CouponSettings";
 import CouponReports from "@/screens/coupons/CouponReports";
 import ReminderCampaigns from "@/screens/coupons/ReminderCampaigns";
 import CampaignDetail from "@/screens/coupons/CampaignDetail";
+import SellerBillsList from "@/screens/coupons/SellerBillsList";
+import SellerBillDetail from "@/screens/coupons/SellerBillDetail";
 import { apiError, renderCoupons } from "../couponFixtures";
 
 function answer(mode) {
@@ -61,6 +63,13 @@ const SCREENS = [
   ["Coupon reports", () => <CouponReports />, "/r", "/r"],
   ["Reminder campaigns", () => <ReminderCampaigns />, "/rc", "/rc"],
   ["Campaign detail", () => <CampaignDetail />, "/rc/:id", "/rc/cmp1"],
+  ["Seller bills", () => <SellerBillsList />, "/seller-bills", "/seller-bills"],
+  [
+    "Seller bill",
+    () => <SellerBillDetail />,
+    "/seller-bills/:id",
+    "/seller-bills/b1",
+  ],
 ];
 
 describe.each(SCREENS)("%s", (_name, ui, path, route) => {

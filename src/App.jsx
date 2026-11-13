@@ -35,6 +35,8 @@ import CouponSettings from "./screens/coupons/CouponSettings";
 import CouponReports from "./screens/coupons/CouponReports";
 import ReminderCampaigns from "./screens/coupons/ReminderCampaigns";
 import CampaignDetail from "./screens/coupons/CampaignDetail";
+import SellerBillsList from "./screens/coupons/SellerBillsList";
+import SellerBillDetail from "./screens/coupons/SellerBillDetail";
 
 export default function App() {
   return (
@@ -314,6 +316,23 @@ export default function App() {
         element={
           <AdminRoute>
             <CampaignDetail />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/seller-bills"
+        element={
+          <AdminRoute>
+            <SellerBillsList />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/seller-bills/:id"
+        element={
+          <AdminRoute>
+            <SellerBillDetail />
           </AdminRoute>
         }
       />

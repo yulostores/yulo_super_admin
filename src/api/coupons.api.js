@@ -111,6 +111,24 @@ export const couponsApi = {
   getCampaign: (id, params = {}) =>
     data(client.get(`/admin/reminder-campaigns/${id}`, { params })),
 
+  // ── Seller bills (plans and SMS credits a seller paid Yulo for) ─────────
+  /** { bills, total, page, limit, summary } — filters q, seller, kind, method, from, to */
+  listSellerBills: (params = {}) =>
+    data(client.get("/admin/seller-bills", { params })),
+  /** One bill in full: { issuedBy, billedTo, lines, payment, … } */
+  getSellerBill: (id) =>
+    data(client.get(`/admin/seller-bills/${id}`)).then((d) => d.bill),
+  /** The bill as a PDF (Blob). */
+  sellerBillPdf: (id) =>
+    client
+      .get(`/admin/seller-bills/${id}/pdf`, { responseType: "blob" })
+      .then((r) => r.data),
+  /** The filtered bills as CSV (Blob), with a totals row. */
+  exportSellerBills: (params = {}) =>
+    client
+      .get("/admin/seller-bills/export.csv", { params, responseType: "blob" })
+      .then((r) => r.data),
+
   // ── Offers ──────────────────────────────────────────────────────────────
   /** { offers, total, page, pages, statusCounts } */
   listOffers: (params = {}) =>

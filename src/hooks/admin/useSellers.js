@@ -30,6 +30,8 @@ export const couponKeys = {
     id,
     params,
   ],
+  sellerBills: (params) => ["admin", "seller-bills", "list", params],
+  sellerBill: (id) => ["admin", "seller-bills", "detail", id],
 };
 
 export function useSellers(params) {
@@ -228,5 +230,21 @@ export function useCreateCampaign() {
   return useMutation({
     mutationFn: (body) => couponsApi.createCampaign(body),
     onSuccess: () => qc.invalidateQueries({ queryKey: couponKeys.campaigns }),
+  });
+}
+
+export function useSellerBills(params) {
+  return useQuery({
+    queryKey: couponKeys.sellerBills(params),
+    queryFn: () => couponsApi.listSellerBills(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSellerBill(id) {
+  return useQuery({
+    queryKey: couponKeys.sellerBill(id),
+    queryFn: () => couponsApi.getSellerBill(id),
+    enabled: Boolean(id),
   });
 }
