@@ -712,6 +712,11 @@ describe("Coupon settings", () => {
     expect(screen.getByLabelText("Credit packs (SMS)").value).toBe(
       "100, 500, 1000",
     );
+    // Coupon validity is fixed at 30 days: shown, not an editable field.
+    expect(screen.getByTestId("validity-fixed").textContent).toContain(
+      "30 days (fixed)",
+    );
+    expect(screen.queryByLabelText("Validity (days)")).toBeNull();
     expect(screen.getByRole("button", { name: "No changes" }).disabled).toBe(
       true,
     );

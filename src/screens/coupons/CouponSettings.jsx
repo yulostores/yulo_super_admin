@@ -29,7 +29,6 @@ export function toForm(s) {
   return {
     perOrderCap: String(s.perOrderCap),
     minOrderValue: String(paiseToRupees(s.minOrderValuePaise)),
-    defaultValidityDays: String(s.defaultValidityDays),
     radiusKm: String(s.radiusKm),
     reminderLeadDays: String(s.reminderLeadDays),
     smsPrice: String(paiseToRupees(s.smsPricePaise)),
@@ -51,7 +50,6 @@ export function fromForm(f) {
   return {
     perOrderCap: Number(f.perOrderCap),
     minOrderValuePaise: Math.round(Number(f.minOrderValue) * 100),
-    defaultValidityDays: Number(f.defaultValidityDays),
     radiusKm: Number(f.radiusKm),
     reminderLeadDays: Number(f.reminderLeadDays),
     smsPricePaise: Math.round(Number(f.smsPrice) * 100),
@@ -76,8 +74,6 @@ export function validateSettings(f, active) {
     Number(f.minOrderValue) <= 100000
   ))
     e.minOrderValue = "₹0 to ₹1,00,000";
-  if (!int(f.defaultValidityDays, 1, 365))
-    e.defaultValidityDays = "1 to 365 days";
   if (!(Number(f.radiusKm) > 0 && Number(f.radiusKm) <= 200))
     e.radiusKm = "More than 0, up to 200 km";
   if (!int(f.reminderLeadDays, 1, 30)) e.reminderLeadDays = "1 to 30 days";
@@ -248,12 +244,17 @@ export default function CouponSettings() {
               num("minOrderValue", { min: 0, step: "0.01" }),
               "Smaller orders get no coupons",
             )}
-            {field(
-              "defaultValidityDays",
-              "Validity (days)",
-              num("defaultValidityDays", { min: 1, max: 365 }),
-              "When an offer doesn't set its own",
-            )}
+            {/* Fixed by the business: every coupon is valid for 30 days (backend
+                COUPON_VALIDITY_DAYS) — shown, not editable. */}
+            <div data-testid="validity-fixed">
+              <p className="text-sm font-medium">Coupon validity</p>
+              <p className="mt-2 flex h-10 items-center rounded-lg border border-dashed px-3 text-sm">
+                {active.defaultValidityDays ?? 30} days (fixed)
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Every coupon, from every offer
+              </p>
+            </div>
             {field(
               "radiusKm",
               "Seller radius (km)",

@@ -115,10 +115,8 @@ export default function OfferReview() {
                           {o.seller?.businessName}
                         </Link>{" "}
                         · {o.category?.name} ·{" "}
-                        {o.validityDays
-                          ? `valid ${o.validityDays} days`
-                          : "standard validity"}{" "}
-                        · edited {formatDateTime(o.updatedAt)}
+                        {`valid ${o.validityDays ?? 30} days`} · edited{" "}
+                        {formatDateTime(o.updatedAt)}
                       </p>
                     </div>
                     <Badge variant={OFFER_STATUS[o.status]?.variant ?? "muted"}>
