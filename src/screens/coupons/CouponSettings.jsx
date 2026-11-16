@@ -324,10 +324,14 @@ export default function CouponSettings() {
               "Text",
               <Textarea
                 id="agreementText"
-                rows={10}
+                rows={28}
+                // Partner agreements run to thousands of words: a tall box (about 60 % of the
+                // screen) that the admin can drag taller still, with the text easy to read.
+                className="min-h-[60vh] resize-y leading-relaxed"
                 value={f.agreementText}
                 onChange={set("agreementText")}
               />,
+              `${f.agreementText.length.toLocaleString("en-IN")} characters`,
             )}
           </CardContent>
         </Card>
